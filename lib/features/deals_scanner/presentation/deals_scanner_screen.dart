@@ -62,7 +62,7 @@ class _DealsScannerScreenState extends ConsumerState<DealsScannerScreen> {
                     ),
                   ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
                   const SizedBox(height: 24),
-                  
+
                   // Store selector
                   _buildStoreSelector(supermarkets, selectedStores),
                 ],

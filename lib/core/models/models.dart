@@ -212,6 +212,165 @@ class NutritionInfo {
   }
 }
 
+// ==================== PANTRY ITEM MODEL ====================
+
+class PantryItem {
+  final String id;
+  final String barcode;
+  final String name;
+  final String? brand;
+  final String? imageUrl;
+  final String? nutriScore; // A, B, C, D, E
+  final NutritionInfo? nutrition;
+  final List<String> allergens;
+  final String? category;
+  final int quantity;
+  final String? packagingSize; // e.g. "500g", "1L", "6 Stueck"
+  final DateTime? expiryDate; // Mindesthaltbarkeitsdatum
+  final DateTime addedAt;
+
+  const PantryItem({
+    required this.id,
+    required this.barcode,
+    required this.name,
+    this.brand,
+    this.imageUrl,
+    this.nutriScore,
+    this.nutrition,
+    this.allergens = const [],
+    this.category,
+    this.quantity = 1,
+    this.packagingSize,
+    this.expiryDate,
+    required this.addedAt,
+  });
+
+  bool get isExpired => expiryDate != null && expiryDate!.isBefore(DateTime.now());
+  bool get isExpiringSoon => expiryDate != null && !isExpired &&
+      expiryDate!.isBefore(DateTime.now().add(const Duration(days: 3)));
+
+  PantryItem copyWith({
+    String? id,
+    String? barcode,
+    String? name,
+    String? brand,
+    String? imageUrl,
+    String? nutriScore,
+    NutritionInfo? nutrition,
+    List<String>? allergens,
+    String? category,
+    int? quantity,
+    String? packagingSize,
+    DateTime? expiryDate,
+    DateTime? addedAt,
+  }) {
+    return PantryItem(
+      id: id ?? this.id,
+      barcode: barcode ?? this.barcode,
+      name: name ?? this.name,
+      brand: brand ?? this.brand,
+      imageUrl: imageUrl ?? this.imageUrl,
+      nutriScore: nutriScore ?? this.nutriScore,
+      nutrition: nutrition ?? this.nutrition,
+      allergens: allergens ?? this.allergens,
+      category: category ?? this.category,
+      quantity: quantity ?? this.quantity,
+      packagingSize: packagingSize ?? this.packagingSize,
+      expiryDate: expiryDate ?? this.expiryDate,
+      addedAt: addedAt ?? this.addedAt,
+    );
+  }
+
+  factory PantryItem.fromOpenFoodFacts(String barcode, Map<String, dynamic> product) {
+    final nutriments = product['nutriments'] as Map<String, dynamic>? ?? {};
+
+    NutritionInfo? nutrition;
+    if (nutriments.isNotEmpty) {
+      nutrition = NutritionInfo(
+        calories: (nutriments['energy-kcal_100g'] as num?)?.toInt() ?? 0,
+        protein: (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0,
+        carbs: (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0,
+        fat: (nutriments['fat_100g'] as num?)?.toDouble() ?? 0,
+        fiber: (nutriments['fiber_100g'] as num?)?.toDouble(),
+      );
+    }
+
+    final allergensTags = product['allergens_tags'] as List<dynamic>? ?? [];
+    final allergens = allergensTags
+        .map((a) => a.toString().replaceAll('en:', '').replaceAll('de:', ''))
+        .toList();
+
+    return PantryItem(
+      id: '${barcode}_${DateTime.now().millisecondsSinceEpoch}',
+      barcode: barcode,
+      name: product['product_name'] as String? ?? 'Unbekanntes Produkt',
+      brand: product['brands'] as String?,
+      imageUrl: product['image_front_small_url'] as String? ?? product['image_url'] as String?,
+      nutriScore: (product['nutriscore_grade'] as String?)?.toUpperCase(),
+      nutrition: nutrition,
+      allergens: allergens,
+      category: _mapCategory(product['categories_tags'] as List<dynamic>?),
+      quantity: 1,
+      addedAt: DateTime.now(),
+    );
+  }
+
+  static String _mapCategory(List<dynamic>? tags) {
+    if (tags == null || tags.isEmpty) return 'Sonstiges';
+    final cat = tags.first.toString().toLowerCase();
+    if (cat.contains('dairy') || cat.contains('milch')) return 'Milchprodukte';
+    if (cat.contains('meat') || cat.contains('fleisch')) return 'Fleisch';
+    if (cat.contains('fish') || cat.contains('fisch')) return 'Fisch';
+    if (cat.contains('vegetable') || cat.contains('gemüse')) return 'Gemüse';
+    if (cat.contains('fruit') || cat.contains('obst')) return 'Obst';
+    if (cat.contains('beverage') || cat.contains('getränk')) return 'Getränke';
+    if (cat.contains('snack')) return 'Snacks';
+    if (cat.contains('bread') || cat.contains('brot') || cat.contains('cereal')) return 'Getreide';
+    if (cat.contains('frozen') || cat.contains('tiefkühl')) return 'Tiefkühl';
+    return 'Sonstiges';
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'barcode': barcode,
+      'name': name,
+      'brand': brand,
+      'imageUrl': imageUrl,
+      'nutriScore': nutriScore,
+      'nutrition': nutrition?.toJson(),
+      'allergens': allergens,
+      'category': category,
+      'quantity': quantity,
+      'packagingSize': packagingSize,
+      'expiryDate': expiryDate?.toIso8601String(),
+      'addedAt': addedAt.toIso8601String(),
+    };
+  }
+
+  factory PantryItem.fromJson(Map<String, dynamic> json) {
+    return PantryItem(
+      id: json['id'] as String,
+      barcode: json['barcode'] as String,
+      name: json['name'] as String,
+      brand: json['brand'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+      nutriScore: json['nutriScore'] as String?,
+      nutrition: json['nutrition'] != null
+          ? NutritionInfo.fromJson(json['nutrition'])
+          : null,
+      allergens: List<String>.from(json['allergens'] ?? []),
+      category: json['category'] as String?,
+      quantity: json['quantity'] as int? ?? 1,
+      packagingSize: json['packagingSize'] as String?,
+      expiryDate: json['expiryDate'] != null
+          ? DateTime.parse(json['expiryDate'] as String)
+          : null,
+      addedAt: DateTime.parse(json['addedAt'] as String),
+    );
+  }
+}
+
 // ==================== DEAL MODEL ====================
 
 class Deal {

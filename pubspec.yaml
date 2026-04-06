@@ -22,6 +22,7 @@ dependencies:
   # Camera & Image
   camera: ^0.10.5+9
   image_picker: ^1.0.7
+  mobile_scanner: ^6.0.2
   
   # HTTP & API
   http: ^1.2.0

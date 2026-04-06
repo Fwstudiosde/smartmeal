@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:smartmeal/core/theme/app_theme.dart';
+import 'package:smartmeal/features/cart/providers/meal_plan_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -28,7 +29,7 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 32),
                 
                 // Quick Stats
-                _buildQuickStats(context),
+                _buildQuickStats(context, ref),
                 const SizedBox(height: 32),
                 
                 // Tips Section
@@ -107,7 +108,12 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickStats(BuildContext context) {
+  Widget _buildQuickStats(BuildContext context, WidgetRef ref) {
+    final mealPlan = ref.watch(currentMealPlanProvider);
+    final mealCount = mealPlan?.meals.length ?? 0;
+    final cookedCount = mealPlan?.meals.where((m) => m.isCooked).length ?? 0;
+    final totalSavings = mealPlan?.totalSavings ?? 0.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -121,8 +127,8 @@ class HomeScreen extends ConsumerWidget {
             Expanded(
               child: _StatCard(
                 icon: Iconsax.book_saved,
-                value: '12',
-                label: 'Rezepte entdeckt',
+                value: '$mealCount',
+                label: mealCount == 1 ? 'Rezept geplant' : 'Rezepte geplant',
                 color: AppColors.primary,
               ).animate().fadeIn(duration: 400.ms, delay: 500.ms).scale(begin: const Offset(0.9, 0.9)),
             ),
@@ -130,13 +136,30 @@ class HomeScreen extends ConsumerWidget {
             Expanded(
               child: _StatCard(
                 icon: Iconsax.wallet_money,
-                value: '€24',
+                value: '€${totalSavings.toStringAsFixed(0)}',
                 label: 'gespart',
                 color: AppColors.accent,
               ).animate().fadeIn(duration: 400.ms, delay: 600.ms).scale(begin: const Offset(0.9, 0.9)),
             ),
           ],
         ),
+        if (cookedCount > 0) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  icon: Iconsax.tick_circle,
+                  value: '$cookedCount',
+                  label: cookedCount == 1 ? 'Gericht gekocht' : 'Gerichte gekocht',
+                  color: Colors.green,
+                ).animate().fadeIn(duration: 400.ms, delay: 700.ms).scale(begin: const Offset(0.9, 0.9)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: const SizedBox()),
+            ],
+          ),
+        ],
       ],
     );
   }

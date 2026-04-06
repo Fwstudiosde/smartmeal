@@ -17,7 +17,7 @@ class _MainNavigationState extends State<MainNavigation> {
   
   final List<_NavItem> _navItems = [
     _NavItem(icon: Iconsax.home_2, activeIcon: Iconsax.home_15, label: 'Home', path: '/'),
-    _NavItem(icon: Iconsax.scan, activeIcon: Iconsax.scan, label: 'Kühlschrank', path: '/fridge'),
+    _NavItem(icon: Iconsax.box_1, activeIcon: Iconsax.box_15, label: 'Vorrat', path: '/fridge'),
     _NavItem(icon: Iconsax.discount_shape, activeIcon: Iconsax.discount_shape5, label: 'Angebote', path: '/deal-recipes'),
     _NavItem(icon: Iconsax.setting_2, activeIcon: Iconsax.setting_25, label: 'Einstellungen', path: '/settings'),
   ];

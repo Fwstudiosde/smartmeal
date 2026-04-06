@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/providers/auth_provider.dart';
+import '../../../core/auth/providers/community_profile_provider.dart';
 
 // Settings State Provider
 final darkModeProvider = StateProvider<bool>((ref) => false);
@@ -50,15 +51,125 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  void _showEditProfileDialog(BuildContext context, WidgetRef ref) {
+    final authState = ref.read(authProvider);
+    final user = authState.user;
+    final currentDisplayName = ref.read(displayNameProvider);
+
+    final nameCtrl = TextEditingController(text: user?.name ?? '');
+    final displayNameCtrl = TextEditingController(text: currentDisplayName ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Profil bearbeiten'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Profile image placeholder
+            GestureDetector(
+              onTap: () {
+                // TODO: Image picker for profile picture
+              },
+              child: Stack(
+                children: [
+                  Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Icon(Iconsax.user, size: 40, color: AppTheme.primaryColor),
+                  ),
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Iconsax.camera, size: 14, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: 'Name',
+                prefixIcon: const Icon(Iconsax.user),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: displayNameCtrl,
+              decoration: InputDecoration(
+                labelText: 'Anzeigename (Community)',
+                hintText: 'z.B. KochProfi92',
+                prefixIcon: const Icon(Iconsax.people),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                helperText: 'Wird bei deinen Community-Rezepten angezeigt',
+                helperMaxLines: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'E-Mail',
+                prefixIcon: const Icon(Iconsax.sms),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: user?.email ?? '',
+              ),
+              controller: TextEditingController(text: user?.email ?? ''),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newDisplayName = displayNameCtrl.text.trim();
+              if (newDisplayName.isNotEmpty) {
+                ref.read(displayNameProvider.notifier).setName(newDisplayName);
+              }
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Profil aktualisiert'),
+                  backgroundColor: Color(0xFF2E7D32),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileSection(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
+    final communityName = ref.watch(displayNameProvider);
 
-    // Display name if available, otherwise email
     final displayName = user?.name?.isNotEmpty == true ? user!.name! : user?.email ?? 'Gast-Benutzer';
     final subtitle = user != null
         ? (user.name?.isNotEmpty == true ? user.email : 'Angemeldet')
-        : 'Anmelden für mehr Features';
+        : 'Anmelden fuer mehr Features';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -86,11 +197,7 @@ class SettingsScreen extends ConsumerWidget {
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
-              Iconsax.user,
-              color: Colors.white,
-              size: 36,
-            ),
+            child: const Icon(Iconsax.user, color: Colors.white, size: 36),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -99,33 +206,38 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 Text(
                   displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
                 ),
+                if (communityName != null && communityName.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Iconsax.people, size: 14, color: Colors.white.withOpacity(0.7)),
+                      const SizedBox(width: 4),
+                      Text(
+                        communityName,
+                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Iconsax.edit,
-              color: Colors.white,
-              size: 20,
+          GestureDetector(
+            onTap: () => _showEditProfileDialog(context, ref),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Iconsax.edit, color: Colors.white, size: 20),
             ),
           ),
         ],

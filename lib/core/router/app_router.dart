@@ -15,6 +15,8 @@ import 'package:smartmeal/features/admin/presentation/admin_login_screen.dart';
 import 'package:smartmeal/features/admin/presentation/admin_verification_screen.dart';
 import 'package:smartmeal/features/admin/presentation/admin_home_screen.dart';
 import 'package:smartmeal/features/cart/presentation/cart_screen.dart';
+import 'package:smartmeal/features/fridge_scanner/presentation/pantry_screen.dart';
+import 'package:smartmeal/features/fridge_scanner/presentation/fridge_scan_screen.dart';
 import 'package:smartmeal/core/navigation/main_navigation.dart';
 import 'package:smartmeal/core/auth/providers/auth_provider.dart';
 import 'package:smartmeal/features/auth/screens/welcome_screen.dart';
@@ -154,6 +156,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/fridge-scan',
+        name: 'fridge-scan',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const FridgeScanScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(0.0, 1.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: child,
+            );
+          },
+        ),
+      ),
+      GoRoute(
+        path: '/pantry',
+        name: 'pantry',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const PantryScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: child,
+            );
+          },
+        ),
       ),
       GoRoute(
         path: '/ingredients',

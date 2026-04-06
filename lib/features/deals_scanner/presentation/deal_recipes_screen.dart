@@ -6,6 +6,10 @@ import 'package:iconsax/iconsax.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/deals_providers.dart';
+import '../providers/custom_recipes_provider.dart';
+import '../../../core/auth/providers/auth_provider.dart';
+import '../../../core/auth/providers/community_profile_provider.dart';
+import '../../fridge_scanner/providers/fridge_providers.dart';
 
 // Selected Category Filter Provider
 final selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
@@ -26,6 +30,28 @@ class DealRecipesScreen extends ConsumerWidget {
         title: Text(savingsMode ? 'Spar-Rezepte' : 'Alle Rezepte'),
         automaticallyImplyLeading: false,
         actions: [
+          // Fridge scanner button
+          IconButton(
+            icon: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.primaryColor,
+                  width: 2,
+                ),
+              ),
+              child: const Icon(
+                Iconsax.camera,
+                size: 18,
+              ),
+            ),
+            tooltip: 'Kühlschrank scannen',
+            onPressed: () {
+              context.push('/fridge-scan');
+            },
+          ),
           // Search button
           IconButton(
             icon: Container(
@@ -46,7 +72,6 @@ class DealRecipesScreen extends ConsumerWidget {
             tooltip: 'Rezepte suchen',
             onPressed: () {
               ref.read(showSearchBarProvider.notifier).state = !showSearchBar;
-              // Clear search when closing
               if (showSearchBar) {
                 ref.read(searchQueryProvider.notifier).state = '';
               }
@@ -331,24 +356,88 @@ class DealRecipesScreen extends ConsumerWidget {
     );
   }
 
+  List<DealRecipe> _customToDeals(List<CustomRecipe> customs, String tag, Map<String, CustomRecipe> customMap) {
+    return customs.map((c) {
+      customMap[c.id] = c;
+      final recipe = Recipe(
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        prepTime: c.prepTime,
+        cookTime: c.cookTime,
+        servings: c.servings,
+        difficulty: c.difficulty,
+        ingredients: c.ingredients.map((i) => RecipeIngredient(
+          name: i['name']?.toString() ?? '',
+          quantity: i['quantity']?.toString() ?? '',
+          unit: i['unit']?.toString() ?? '',
+          isAvailable: true,
+        )).toList(),
+        instructions: c.instructions,
+        tags: [tag, if (c.authorName != null) c.authorName!],
+      );
+      return DealRecipe(
+        recipe: recipe,
+        dealIngredients: [],
+        totalSavings: 0,
+        totalCost: 0,
+      );
+    }).toList();
+  }
+
   Widget _buildContent(
     BuildContext context,
     WidgetRef ref,
     List<DealRecipe> dealRecipes,
   ) {
-    // Filter recipes by selected category
     final selectedCategory = ref.watch(selectedCategoryFilterProvider);
-    final filteredRecipes = selectedCategory == null
-        ? dealRecipes
-        : dealRecipes.where((dr) {
-            // Category is stored in recipe.tags[0]
-            if (dr.recipe.tags.isEmpty) return false;
-            return dr.recipe.tags.first == selectedCategory;
-          }).toList();
+    final ownRecipes = ref.watch(ownRecipesProvider);
+    final communityRecipes = ref.watch(communityRecipesProvider);
+
+    final customMap = <String, CustomRecipe>{};
+    final userId = ref.watch(authProvider).user?.id;
+
+    // Build filtered list based on selected category
+    List<DealRecipe> filteredRecipes;
+
+    if (selectedCategory == 'custom') {
+      // "Eigene" - all own recipes (private + public)
+      filteredRecipes = _customToDeals(ownRecipes, 'custom', customMap);
+    } else if (selectedCategory == 'community') {
+      // "Community" - all public recipes (including own)
+      filteredRecipes = _customToDeals(communityRecipes, 'community', customMap);
+    } else {
+      // "Alle" or other category filters - merge deal recipes + custom
+      List<DealRecipe> allRecipes = [...dealRecipes];
+      allRecipes.addAll(_customToDeals(ownRecipes, 'custom', customMap));
+
+      // Add community recipes not already in own
+      final ownIds = ownRecipes.map((r) => r.id).toSet();
+      final communityOnly = communityRecipes.where((r) => !ownIds.contains(r.id)).toList();
+      allRecipes.addAll(_customToDeals(communityOnly, 'community', customMap));
+
+      if (selectedCategory == null) {
+        filteredRecipes = allRecipes;
+      } else {
+        filteredRecipes = allRecipes.where((dr) {
+          if (dr.recipe.tags.isEmpty) return false;
+          return dr.recipe.tags.first == selectedCategory;
+        }).toList();
+      }
+    }
+
+    // Build allRecipes just for filter chip display
+    final allForChips = <DealRecipe>[...dealRecipes];
+    allForChips.addAll(_customToDeals(ownRecipes, 'custom', customMap));
+    final ownIds2 = ownRecipes.map((r) => r.id).toSet();
+    allForChips.addAll(_customToDeals(
+      communityRecipes.where((r) => !ownIds2.contains(r.id)).toList(),
+      'community', customMap,
+    ));
 
     return Column(
       children: [
-        _buildCategoryFilters(ref, dealRecipes),
+        _buildCategoryFilters(ref, allForChips),
         Expanded(
           child: filteredRecipes.isEmpty
               ? _buildEmptyFilterState()
@@ -357,7 +446,7 @@ class DealRecipesScreen extends ConsumerWidget {
                   itemCount: filteredRecipes.length,
                   itemBuilder: (context, index) {
                     final dealRecipe = filteredRecipes[index];
-                    return _buildDealRecipeCard(context, dealRecipe, index);
+                    return _buildDealRecipeCard(context, dealRecipe, index, ref, customMap);
                   },
                 ),
         ),
@@ -371,6 +460,7 @@ class DealRecipesScreen extends ConsumerWidget {
     // Define categories
     final categories = [
       {'name': 'Alle', 'value': null, 'icon': Iconsax.category},
+      {'name': 'Community', 'value': 'community', 'icon': Iconsax.people},
       {'name': 'Eigene', 'value': 'custom', 'icon': Iconsax.edit},
       {'name': 'Frühstück', 'value': 'breakfast', 'icon': Iconsax.coffee},
       {'name': 'Fitness', 'value': 'fitness', 'icon': Iconsax.heart},
@@ -490,7 +580,11 @@ class DealRecipesScreen extends ConsumerWidget {
     BuildContext context,
     DealRecipe dealRecipe,
     int index,
+    [WidgetRef? ref, Map<String, CustomRecipe>? customMap]
   ) {
+    final customRecipe = customMap?[dealRecipe.recipe.id];
+    final isCustom = customRecipe != null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -570,14 +664,161 @@ class DealRecipesScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  dealRecipe.recipe.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dealRecipe.recipe.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (isCustom && ref != null)
+                      GestureDetector(
+                        onTap: () => ref.read(customRecipesProvider.notifier).toggleLike(customRecipe!.id),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              customRecipe!.isLikedByMe ? Iconsax.heart5 : Iconsax.heart,
+                              color: customRecipe.isLikedByMe ? Colors.red : AppTheme.textSecondary,
+                              size: 22,
+                            ),
+                            if (customRecipe.likeCount > 0) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '${customRecipe.likeCount}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: customRecipe.isLikedByMe ? Colors.red : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
+                // Author info for community recipes
+                if (isCustom && customRecipe!.authorName != null && customRecipe.isPublic) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Iconsax.user, size: 14, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        customRecipe.authorName!,
+                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+                // Public toggle for own recipes
+                if (isCustom && ref != null && customRecipe!.userId == ref.read(authProvider).user?.id) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: customRecipe.isPublic
+                          ? const Color(0xFF2E7D32).withOpacity(0.06)
+                          : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: customRecipe.isPublic
+                            ? const Color(0xFF2E7D32).withOpacity(0.2)
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          customRecipe.isPublic ? Iconsax.global : Iconsax.lock,
+                          size: 16,
+                          color: customRecipe.isPublic ? const Color(0xFF2E7D32) : Colors.grey,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          customRecipe.isPublic ? 'Online' : 'Privat',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: customRecipe.isPublic ? const Color(0xFF2E7D32) : Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          height: 28,
+                          child: Switch(
+                            value: customRecipe.isPublic,
+                            onChanged: (val) async {
+                              if (val && !ref.read(hasDisplayNameProvider)) {
+                                // Need display name first
+                                final nameCtrl = TextEditingController();
+                                final name = await showDialog<String>(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                    title: const Text('Anzeigename waehlen'),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text('Dein Name wird bei Community-Rezepten angezeigt.',
+                                          style: TextStyle(fontSize: 14, color: Colors.grey)),
+                                        const SizedBox(height: 16),
+                                        TextField(
+                                          controller: nameCtrl,
+                                          autofocus: true,
+                                          decoration: InputDecoration(
+                                            hintText: 'z.B. KochProfi92',
+                                            prefixIcon: const Icon(Iconsax.user),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          final n = nameCtrl.text.trim();
+                                          if (n.isNotEmpty) Navigator.pop(ctx, n);
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2E7D32),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Bestaetigen'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (name == null) return;
+                                ref.read(displayNameProvider.notifier).setName(name);
+                                ref.read(customRecipesProvider.notifier).togglePublic(
+                                  customRecipe.id, authorName: name,
+                                );
+                              } else {
+                                ref.read(customRecipesProvider.notifier).togglePublic(
+                                  customRecipe.id,
+                                  authorName: ref.read(displayNameProvider),
+                                );
+                              }
+                            },
+                            activeColor: const Color(0xFF2E7D32),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   dealRecipe.recipe.description,

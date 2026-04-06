@@ -2,12 +2,16 @@ class UserModel {
   final String id;
   final String email;
   final String? name;
+  final String? displayName;
+  final String? profileImageUrl;
   final String createdAt;
 
   UserModel({
     required this.id,
     required this.email,
     this.name,
+    this.displayName,
+    this.profileImageUrl,
     required this.createdAt,
   });
 
@@ -16,6 +20,8 @@ class UserModel {
       id: json['id'] as String,
       email: json['email'] as String,
       name: json['name'] as String?,
+      displayName: json['display_name'] as String?,
+      profileImageUrl: json['profile_image_url'] as String?,
       createdAt: json['created_at'] as String,
     );
   }
@@ -25,8 +31,28 @@ class UserModel {
       'id': id,
       'email': email,
       'name': name,
+      'display_name': displayName,
+      'profile_image_url': profileImageUrl,
       'created_at': createdAt,
     };
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? displayName,
+    String? profileImageUrl,
+    String? createdAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      displayName: displayName ?? this.displayName,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }
 

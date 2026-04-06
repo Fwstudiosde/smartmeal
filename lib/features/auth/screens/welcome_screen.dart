@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:sign_in_with_apple/sign_in_with_apple.dart'; // Temporarily disabled
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../core/auth/providers/auth_provider.dart';
 
 class WelcomeScreen extends ConsumerStatefulWidget {
@@ -233,9 +233,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
               const SizedBox(height: 24),
 
-              // TODO: Re-enable Apple Sign-In after configuring OAuth in Supabase
-              // Temporarily disabled for TestFlight testing
-              /*
               // Divider
               Row(
                 children: [
@@ -269,7 +266,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               ),
 
               const SizedBox(height: 16),
-              */
 
               // Error Message
               if (authState.error != null)
