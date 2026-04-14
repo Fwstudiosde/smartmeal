@@ -104,6 +104,22 @@ class HomeScreen extends ConsumerWidget {
           onTap: () => context.go('/deals'),
           imagePath: 'assets/images/deals.png',
         ).animate().fadeIn(duration: 500.ms, delay: 300.ms).slideY(begin: 0.1),
+
+        const SizedBox(height: 16),
+
+        // Community Card
+        _FeatureCard(
+          title: 'Community',
+          subtitle: 'Entdecke und teile Rezepte mit der Community',
+          icon: Iconsax.people,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF7B1FA2), Color(0xFF9C27B0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onTap: () => context.go('/community'),
+          imagePath: 'assets/images/deals.png',
+        ).animate().fadeIn(duration: 500.ms, delay: 400.ms).slideY(begin: 0.1),
       ],
     );
   }

@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   
   # State Management
   flutter_riverpod: ^2.4.9
@@ -44,7 +46,7 @@ dependencies:
   iconsax: ^0.0.8
   
   # Utils
-  intl: ^0.19.0
+  intl: ^0.20.2
   uuid: ^4.3.1
 
   # File Picker
@@ -65,6 +67,13 @@ dependencies:
   # URL Launcher
   url_launcher: ^6.2.4
 
+  # Local Notifications
+  flutter_local_notifications: ^17.0.0
+
+  # Firebase (Push Notifications)
+  firebase_core: ^3.3.0
+  firebase_messaging: ^15.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -75,6 +84,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
 flutter:
+  generate: true
   uses-material-design: true
 
   assets:

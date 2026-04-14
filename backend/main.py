@@ -13,9 +13,17 @@ import uuid
 # Import scrapers
 from scrapers.lidl_scraper import LidlScraper
 from scrapers.kaufland_scraper import KauflandScraper
+from scrapers.aldi_scraper import AldiScraper
+from scrapers.rewe_scraper import ReweScraper
+from scrapers.edeka_scraper import EdekaScraper
+from scrapers.penny_scraper import PennyScraper
+from scrapers.netto_scraper import NettoScraper
 
 # Import Chefkoch scraper
 from chefkoch_scraper import ChefkochScraper
+
+# Import notification service
+from notification_service import send_deal_alerts
 
 # Import admin functionality
 from auth import (
@@ -65,9 +73,11 @@ SCRAPING_STATUS = {
 SCRAPERS = {
     "lidl": LidlScraper(),
     "kaufland": KauflandScraper(),
-    # Add more scrapers here
-    # "aldi": AldiScraper(),
-    # "rewe": ReweScraper(),
+    "aldi": AldiScraper(),
+    "rewe": ReweScraper(),
+    "edeka": EdekaScraper(),
+    "penny": PennyScraper(),
+    "netto": NettoScraper(),
 }
 
 # Initialize Chefkoch scraper
@@ -193,6 +203,14 @@ async def scrape_all_stores():
 
         # Save to cache
         save_deals(all_deals)
+
+        # Send push notifications for new deals
+        if all_deals:
+            try:
+                sent = await send_deal_alerts(all_deals, supabase_client=None)
+                print(f"Sent {sent} deal alert notifications")
+            except Exception as e:
+                print(f"Error sending deal alerts: {e}")
 
         SCRAPING_STATUS["last_success"] = datetime.now().isoformat()
         print(f"Scraping completed. Total deals: {len(all_deals)}")

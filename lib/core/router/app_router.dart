@@ -17,6 +17,7 @@ import 'package:smartmeal/features/admin/presentation/admin_home_screen.dart';
 import 'package:smartmeal/features/cart/presentation/cart_screen.dart';
 import 'package:smartmeal/features/fridge_scanner/presentation/pantry_screen.dart';
 import 'package:smartmeal/features/fridge_scanner/presentation/fridge_scan_screen.dart';
+import 'package:smartmeal/features/community/presentation/community_screen.dart';
 import 'package:smartmeal/core/navigation/main_navigation.dart';
 import 'package:smartmeal/core/auth/providers/auth_provider.dart';
 import 'package:smartmeal/features/auth/screens/welcome_screen.dart';
@@ -161,6 +162,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => CustomTransitionPage(
               key: state.pageKey,
               child: const DealRecipesScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+            ),
+          ),
+          GoRoute(
+            path: '/community',
+            name: 'community',
+            pageBuilder: (context, state) => CustomTransitionPage(
+              key: state.pageKey,
+              child: const CommunityScreen(),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(opacity: animation, child: child);
               },

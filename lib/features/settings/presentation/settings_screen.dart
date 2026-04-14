@@ -4,9 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/providers/auth_provider.dart';
 import '../../../core/auth/providers/community_profile_provider.dart';
+import '../../../core/services/avatar_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../features/fridge_scanner/providers/pantry_provider.dart';
+import '../../../main.dart' show localeProvider;
 
 // Persistent Settings Providers backed by Hive 'settings' box
 final darkModeProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
@@ -20,6 +26,9 @@ final dealAlertsProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((re
 });
 final metricUnitsProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
   return _BoolSettingNotifier('metric_units', true);
+});
+final expiryRemindersProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
+  return _BoolSettingNotifier('expiry_reminders', false);
 });
 
 class _BoolSettingNotifier extends StateNotifier<bool> {
@@ -109,11 +118,9 @@ class SettingsScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Profile image placeholder
+            // Profile image with picker
             GestureDetector(
-              onTap: () {
-                // TODO: Image picker for profile picture
-              },
+              onTap: () => _showImagePickerOptions(ctx, ref),
               child: Stack(
                 children: [
                   Container(
@@ -122,7 +129,17 @@ class SettingsScreen extends ConsumerWidget {
                       color: AppTheme.primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const Icon(Iconsax.user, size: 40, color: AppTheme.primaryColor),
+                    child: ref.watch(profileImageUrlProvider) != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: CachedNetworkImage(
+                              imageUrl: ref.watch(profileImageUrlProvider)!,
+                              width: 80, height: 80, fit: BoxFit.cover,
+                              placeholder: (_, __) => const Icon(Iconsax.user, size: 40, color: AppTheme.primaryColor),
+                              errorWidget: (_, __, ___) => const Icon(Iconsax.user, size: 40, color: AppTheme.primaryColor),
+                            ),
+                          )
+                        : const Icon(Iconsax.user, size: 40, color: AppTheme.primaryColor),
                   ),
                   Positioned(
                     bottom: 0, right: 0,
@@ -239,7 +256,17 @@ class SettingsScreen extends ConsumerWidget {
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Iconsax.user, color: Colors.white, size: 36),
+            child: ref.watch(profileImageUrlProvider) != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: CachedNetworkImage(
+                      imageUrl: ref.watch(profileImageUrlProvider)!,
+                      width: 70, height: 70, fit: BoxFit.cover,
+                      placeholder: (_, __) => const Icon(Iconsax.user, color: Colors.white, size: 36),
+                      errorWidget: (_, __, ___) => const Icon(Iconsax.user, color: Colors.white, size: 36),
+                    ),
+                  )
+                : const Icon(Iconsax.user, color: Colors.white, size: 36),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -346,12 +373,12 @@ class SettingsScreen extends ConsumerWidget {
           _buildSettingTile(
             icon: Iconsax.language_square,
             title: 'Sprache',
-            subtitle: 'Deutsch',
+            subtitle: _getLanguageName(ref.watch(localeProvider).languageCode),
             trailing: const Icon(
               Iconsax.arrow_right_3,
               color: AppTheme.textSecondary,
             ),
-            onTap: () => _showLanguageDialog(context),
+            onTap: () => _showLanguageDialog(context, ref),
           ),
           const Divider(height: 1),
           _buildSettingTile(
@@ -416,14 +443,19 @@ class SettingsScreen extends ConsumerWidget {
           _buildSettingTile(
             icon: Iconsax.timer_1,
             title: 'Ablauf-Erinnerungen',
-            subtitle: 'Kommt bald',
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text('Bald', style: TextStyle(fontSize: 11, color: AppTheme.primaryColor)),
+            subtitle: 'Benachrichtigung bei ablaufenden Produkten',
+            trailing: Switch(
+              value: ref.watch(expiryRemindersProvider),
+              onChanged: (value) {
+                ref.read(expiryRemindersProvider.notifier).set(value);
+                if (value) {
+                  final items = ref.read(pantryProvider);
+                  ExpiryCheckerService.checkExpiringItems(items);
+                } else {
+                  NotificationService().cancelAll();
+                }
+              },
+              activeColor: AppTheme.primaryColor,
             ),
           ),
         ],
@@ -627,6 +659,65 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  String _getLanguageName(String code) {
+    switch (code) {
+      case 'de': return 'Deutsch';
+      case 'en': return 'English';
+      case 'fr': return 'Français';
+      case 'es': return 'Español';
+      default: return 'Deutsch';
+    }
+  }
+
+  void _showImagePickerOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Iconsax.camera, color: AppTheme.primaryColor),
+                title: const Text('Kamera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadAvatar(ref, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Iconsax.gallery, color: AppTheme.primaryColor),
+                title: const Text('Galerie'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadAvatar(ref, ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadAvatar(WidgetRef ref, ImageSource source) async {
+    final userId = ref.read(authProvider).user?.id;
+    if (userId == null) return;
+
+    final url = await AvatarService.pickAndUploadAvatar(
+      userId: userId,
+      source: source,
+    );
+
+    if (url != null) {
+      ref.read(profileImageUrlProvider.notifier).state = url;
+    }
+  }
+
   void _openUrl(String url) async {
     final uri = Uri.parse(url);
     try {
@@ -634,7 +725,9 @@ class SettingsScreen extends ConsumerWidget {
     } catch (_) {}
   }
 
-  void _showLanguageDialog(BuildContext context) {
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
+    final currentLocale = ref.read(localeProvider);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -645,10 +738,10 @@ class SettingsScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildLanguageOption('Deutsch', true),
-            _buildLanguageOption('English', false),
-            _buildLanguageOption('Français', false),
-            _buildLanguageOption('Español', false),
+            _buildLanguageOption(context, ref, 'Deutsch', const Locale('de'), currentLocale.languageCode == 'de'),
+            _buildLanguageOption(context, ref, 'English', const Locale('en'), currentLocale.languageCode == 'en'),
+            _buildLanguageOption(context, ref, 'Français', const Locale('fr'), currentLocale.languageCode == 'fr'),
+            _buildLanguageOption(context, ref, 'Español', const Locale('es'), currentLocale.languageCode == 'es'),
           ],
         ),
         actions: [
@@ -661,13 +754,16 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLanguageOption(String language, bool isSelected) {
+  Widget _buildLanguageOption(BuildContext context, WidgetRef ref, String language, Locale locale, bool isSelected) {
     return ListTile(
       title: Text(language),
       trailing: isSelected
           ? const Icon(Iconsax.tick_circle, color: AppTheme.primaryColor)
-          : const Text('Bald', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-      onTap: isSelected ? null : () {},
+          : null,
+      onTap: () {
+        ref.read(localeProvider.notifier).setLocale(locale);
+        Navigator.pop(context);
+      },
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/core/services/api/open_food_facts_client.dart';
+import 'package:smartmeal/core/services/notification_service.dart';
 
 // OpenFoodFacts client provider
 final openFoodFactsProvider = Provider<OpenFoodFactsClient>((ref) {
@@ -58,11 +59,13 @@ class PantryNotifier extends StateNotifier<List<PantryItem>> {
       state = [item, ...state];
     }
     _saveToHive();
+    ExpiryCheckerService.checkExpiringItems(state);
   }
 
   void removeItem(String id) {
     state = state.where((item) => item.id != id).toList();
     _saveToHive();
+    ExpiryCheckerService.checkExpiringItems(state);
   }
 
   void decreaseQuantity(String id) {

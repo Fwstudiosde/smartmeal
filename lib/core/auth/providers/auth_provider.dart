@@ -45,8 +45,11 @@ class AuthNotifier extends StateNotifier<models.AuthState> {
     }
   }
 
-  /// Map Supabase User to UserModel
+  /// Map Supabase User to UserModel and load profile data
   UserModel _mapSupabaseUserToUserModel(User supabaseUser) {
+    // Load profile image asynchronously
+    _loadProfileImage(supabaseUser.id);
+
     return UserModel(
       id: supabaseUser.id,
       email: supabaseUser.email ?? '',
@@ -54,6 +57,24 @@ class AuthNotifier extends StateNotifier<models.AuthState> {
             supabaseUser.userMetadata?['full_name'] as String?,
       createdAt: supabaseUser.createdAt,
     );
+  }
+
+  /// Load profile image from user_profiles table
+  Future<void> _loadProfileImage(String userId) async {
+    try {
+      final response = await supabase
+          .from('user_profiles')
+          .select('avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+
+      final avatarUrl = response?['avatar_url'] as String?;
+      if (avatarUrl != null && state.user != null) {
+        state = state.copyWith(
+          user: state.user!.copyWith(profileImageUrl: avatarUrl),
+        );
+      }
+    } catch (_) {}
   }
 
   /// Register with email and password

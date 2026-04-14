@@ -1,0 +1,428 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:smartmeal/core/theme/app_theme.dart';
+import 'package:smartmeal/core/auth/providers/auth_provider.dart';
+import 'package:smartmeal/core/auth/providers/community_profile_provider.dart';
+import 'package:smartmeal/features/deals_scanner/providers/custom_recipes_provider.dart';
+
+final communitySearchProvider = StateProvider<String>((ref) => '');
+
+final filteredCommunityRecipesProvider = Provider<List<CustomRecipe>>((ref) {
+  final recipes = ref.watch(communityRecipesProvider);
+  final search = ref.watch(communitySearchProvider).toLowerCase();
+  if (search.isEmpty) return recipes;
+  return recipes.where((r) => r.name.toLowerCase().contains(search)).toList();
+});
+
+class CommunityScreen extends ConsumerWidget {
+  const CommunityScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recipesState = ref.watch(customRecipesProvider);
+    final filteredRecipes = ref.watch(filteredCommunityRecipesProvider);
+    final isLoading = recipesState.isLoading;
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Community'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: TextField(
+              onChanged: (value) => ref.read(communitySearchProvider.notifier).state = value,
+              decoration: InputDecoration(
+                hintText: 'Rezepte suchen...',
+                prefixIcon: const Icon(Iconsax.search_normal_1, color: AppTheme.textSecondary),
+                filled: true,
+                fillColor: AppTheme.surfaceColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+
+          // Content
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+                : filteredRecipes.isEmpty
+                    ? _buildEmptyState(context)
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          ref.read(customRecipesProvider.notifier).loadRecipes();
+                        },
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          itemCount: filteredRecipes.length,
+                          itemBuilder: (context, index) {
+                            final recipe = filteredRecipes[index];
+                            return _CommunityRecipeCard(recipe: recipe)
+                                .animate()
+                                .fadeIn(delay: Duration(milliseconds: 50 * index))
+                                .slideY(begin: 0.1, end: 0);
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Iconsax.people, size: 80, color: AppTheme.primaryColor.withOpacity(0.3)),
+          const SizedBox(height: 16),
+          const Text(
+            'Noch keine Community-Rezepte',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sei der Erste, der ein Rezept teilt!',
+            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommunityRecipeCard extends ConsumerWidget {
+  final CustomRecipe recipe;
+
+  const _CommunityRecipeCard({required this.recipe});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(authProvider).user?.id;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showRecipeDetail(context, recipe),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Title + Like
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      recipe.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  _LikeButton(recipe: recipe),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              if (recipe.description.isNotEmpty)
+                Text(
+                  recipe.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                ),
+              const SizedBox(height: 12),
+
+              // Meta row
+              Row(
+                children: [
+                  _MetaChip(icon: Iconsax.timer_1, label: '${recipe.prepTime + recipe.cookTime} Min'),
+                  const SizedBox(width: 8),
+                  _MetaChip(icon: Iconsax.chart_21, label: recipe.difficulty),
+                  const SizedBox(width: 8),
+                  _MetaChip(icon: Iconsax.profile_2user, label: '${recipe.servings} Portionen'),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Author + ingredients count
+              Row(
+                children: [
+                  Icon(Iconsax.user, size: 14, color: AppTheme.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    recipe.authorName ?? 'Anonym',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${recipe.ingredients.length} Zutaten',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRecipeDetail(BuildContext context, CustomRecipe recipe) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(24),
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              Text(
+                recipe.name,
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+
+              // Author
+              if (recipe.authorName != null)
+                Row(
+                  children: [
+                    const Icon(Iconsax.user, size: 16, color: AppTheme.primaryColor),
+                    const SizedBox(width: 6),
+                    Text('Geteilt von ${recipe.authorName}',
+                        style: const TextStyle(color: AppTheme.primaryColor)),
+                  ],
+                ),
+              const SizedBox(height: 16),
+
+              // Description
+              if (recipe.description.isNotEmpty) ...[
+                Text(recipe.description, style: TextStyle(color: AppTheme.textSecondary)),
+                const SizedBox(height: 16),
+              ],
+
+              // Meta info
+              Row(
+                children: [
+                  _DetailChip(icon: Iconsax.timer_1, label: '${recipe.prepTime} Min Vorbereitung'),
+                  const SizedBox(width: 8),
+                  _DetailChip(icon: Iconsax.timer, label: '${recipe.cookTime} Min Kochen'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _DetailChip(icon: Iconsax.chart_21, label: recipe.difficulty),
+                  const SizedBox(width: 8),
+                  _DetailChip(icon: Iconsax.profile_2user, label: '${recipe.servings} Portionen'),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Ingredients
+              const Text('Zutaten', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ...recipe.ingredients.map((i) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6, height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${i['quantity'] ?? ''} ${i['unit'] ?? ''} ${i['name'] ?? ''}'.trim(),
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+              const SizedBox(height: 24),
+
+              // Instructions
+              const Text('Zubereitung', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ...recipe.instructions.asMap().entries.map((entry) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${entry.key + 1}',
+                          style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(entry.value, style: const TextStyle(fontSize: 15)),
+                    ),
+                  ],
+                ),
+              )),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LikeButton extends ConsumerWidget {
+  final CustomRecipe recipe;
+
+  const _LikeButton({required this.recipe});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => ref.read(customRecipesProvider.notifier).toggleLike(recipe.id),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              recipe.isLikedByMe ? Iconsax.heart5 : Iconsax.heart,
+              size: 20,
+              color: recipe.isLikedByMe ? Colors.red : AppTheme.textSecondary,
+            ),
+            if (recipe.likeCount > 0) ...[
+              const SizedBox(width: 4),
+              Text(
+                '${recipe.likeCount}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: recipe.isLikedByMe ? Colors.red : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppTheme.primaryColor),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _DetailChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppTheme.primaryColor),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
