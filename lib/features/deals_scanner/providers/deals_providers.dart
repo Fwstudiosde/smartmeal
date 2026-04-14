@@ -232,11 +232,9 @@ final apiDealRecipesProvider = FutureProvider<List<DealRecipe>>((ref) async {
 
     // No recipes with deals found - return empty list
     // Note: In serverless mode, we only return recipes that have matching deals
-    print('No recipes with deals found');
     return [];
 
   } catch (e) {
-    print('Error loading recipes from API: $e');
     return [];
   }
 });
@@ -368,7 +366,6 @@ final allRecipesProvider = FutureProvider<List<DealRecipe>>((ref) async {
     }).toList();
 
   } catch (e) {
-    print('Error loading all recipes: $e');
     return [];
   }
 });

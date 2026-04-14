@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:smartmeal/core/models/models.dart';
+import 'package:smartmeal/core/config/supabase_config.dart';
 
 /// Abstract interface for deals data sources
 abstract class DealsDataSource {
@@ -54,7 +55,7 @@ class DealsApiClient {
     _dio.interceptors.add(LogInterceptor(
       requestBody: true,
       responseBody: true,
-      logPrint: (obj) => print('[DealsAPI] $obj'),
+      logPrint: (obj) {},
     ));
   }
 
@@ -72,7 +73,6 @@ class DealsApiClient {
         final deals = await source.fetchDeals(storeIds: storeIds);
         allDeals.addAll(deals);
       } catch (e) {
-        print('Error fetching from ${source.sourceName}: $e');
         // Continue with other sources even if one fails
       }
     }
@@ -104,7 +104,6 @@ class DealsApiClient {
           supermarketsSet[market.id] = market;
         }
       } catch (e) {
-        print('Error fetching supermarkets from ${source.sourceName}: $e');
       }
     }
 
@@ -174,11 +173,12 @@ class BackendDealsDataSource implements DealsDataSource {
   final String baseUrl;
 
   BackendDealsDataSource({
-    this.baseUrl = 'http://localhost:8000',
+    String? baseUrl,
     Dio? dio,
-  }) : _dio = dio ?? Dio() {
+  }) : baseUrl = baseUrl ?? BackendConfig.baseUrl,
+       _dio = dio ?? Dio() {
     _dio.options = BaseOptions(
-      baseUrl: baseUrl,
+      baseUrl: this.baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
@@ -213,7 +213,6 @@ class BackendDealsDataSource implements DealsDataSource {
 
       return [];
     } catch (e) {
-      print('Error fetching deals from backend: $e');
       return [];
     }
   }
@@ -251,7 +250,6 @@ class BackendDealsDataSource implements DealsDataSource {
       // Fallback to predefined list if API fails
       return Supermarket.all;
     } catch (e) {
-      print('Error fetching supermarkets from backend: $e');
       return Supermarket.all;
     }
   }

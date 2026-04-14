@@ -31,9 +31,17 @@ serve(async (req) => {
       )
     }
 
-    // Admin credentials (hardcoded for security - only accessible server-side)
-    const ADMIN_EMAIL = 'accounts@fwstudios.de'
-    const ADMIN_PASSWORD = 'Lian0302!'
+    // Admin credentials from environment variables (set via Supabase dashboard)
+    const ADMIN_EMAIL = Deno.env.get('ADMIN_EMAIL') ?? ''
+    const ADMIN_PASSWORD = Deno.env.get('ADMIN_PASSWORD') ?? ''
+
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      console.error('Admin credentials not configured in environment variables')
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error', verified: false }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Verify credentials
     if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {

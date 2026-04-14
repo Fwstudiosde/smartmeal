@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:smartmeal/core/config/supabase_config.dart';
 
 class AdminApiClient {
   final Dio _dio;
@@ -7,9 +8,10 @@ class AdminApiClient {
   String? _accessToken;
 
   AdminApiClient({
-    this.baseUrl = 'http://localhost:8000',
+    String? baseUrl,
     Dio? dio,
-  }) : _dio = dio ?? Dio() {
+  }) : baseUrl = baseUrl ?? BackendConfig.baseUrl,
+       _dio = dio ?? Dio() {
     _configureDio();
   }
 
@@ -55,7 +57,6 @@ class AdminApiClient {
 
       return false;
     } catch (e) {
-      print('Login error: $e');
       return false;
     }
   }

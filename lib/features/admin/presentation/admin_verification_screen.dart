@@ -39,10 +39,6 @@ class _AdminVerificationScreenState extends ConsumerState<AdminVerificationScree
 
     try {
       // Call Supabase Edge Function to verify admin credentials
-      print('DEBUG: Calling admin-verify function...');
-      print('DEBUG: Email: ${_emailController.text.trim()}');
-
-      // Use direct HTTP call to bypass JWT validation
       final url = Uri.parse('${SupabaseConfig.supabaseUrl}/functions/v1/admin-verify');
       final response = await http.post(
         url,
@@ -55,9 +51,6 @@ class _AdminVerificationScreenState extends ConsumerState<AdminVerificationScree
           'password': _passwordController.text,
         }),
       );
-
-      print('DEBUG: Response status: ${response.statusCode}');
-      print('DEBUG: Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -79,7 +72,6 @@ class _AdminVerificationScreenState extends ConsumerState<AdminVerificationScree
         });
       }
     } catch (e) {
-      print('DEBUG: Error caught: $e');
       setState(() {
         _errorMessage = 'Fehler bei der Admin-Verifizierung: ${e.toString()}';
         _isLoading = false;

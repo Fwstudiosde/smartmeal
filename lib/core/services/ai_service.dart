@@ -45,7 +45,6 @@ class AIService {
 
       throw Exception('Failed to analyze image: ${response.body}');
     } catch (e) {
-      print('Error analyzing image: $e');
       // For demo purposes, return mock data if API fails
       return _getMockIngredients();
     }
@@ -128,7 +127,6 @@ class AIService {
 
       throw Exception('Failed to generate recipes: ${response.body}');
     } catch (e) {
-      print('Error generating recipes: $e');
       // For demo purposes, return mock data if API fails
       return _getMockRecipes();
     }
@@ -214,7 +212,6 @@ class AIService {
 
       throw Exception('Failed to generate deal recipes: ${response.body}');
     } catch (e) {
-      print('Error generating deal recipes: $e');
       // For demo purposes, return empty list if API fails
       return [];
     }

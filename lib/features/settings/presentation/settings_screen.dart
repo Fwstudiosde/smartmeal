@@ -1,16 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/providers/auth_provider.dart';
 import '../../../core/auth/providers/community_profile_provider.dart';
 
-// Settings State Provider
-final darkModeProvider = StateProvider<bool>((ref) => false);
-final notificationsProvider = StateProvider<bool>((ref) => true);
-final dealAlertsProvider = StateProvider<bool>((ref) => true);
-final metricUnitsProvider = StateProvider<bool>((ref) => true);
+// Persistent Settings Providers backed by Hive 'settings' box
+final darkModeProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
+  return _BoolSettingNotifier('dark_mode', false);
+});
+final notificationsProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
+  return _BoolSettingNotifier('notifications', true);
+});
+final dealAlertsProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
+  return _BoolSettingNotifier('deal_alerts', true);
+});
+final metricUnitsProvider = StateNotifierProvider<_BoolSettingNotifier, bool>((ref) {
+  return _BoolSettingNotifier('metric_units', true);
+});
+
+class _BoolSettingNotifier extends StateNotifier<bool> {
+  final String _key;
+  _BoolSettingNotifier(this._key, bool defaultValue)
+      : super(defaultValue) {
+    _load(defaultValue);
+  }
+
+  void _load(bool defaultValue) {
+    try {
+      final box = Hive.box('settings');
+      state = box.get(_key, defaultValue: defaultValue) as bool;
+    } catch (_) {}
+  }
+
+  void toggle() {
+    state = !state;
+    _save();
+  }
+
+  void set(bool value) {
+    state = value;
+    _save();
+  }
+
+  void _save() {
+    try {
+      final box = Hive.box('settings');
+      box.put(_key, state);
+    } catch (_) {}
+  }
+}
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -284,7 +326,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: Switch(
               value: isDarkMode,
               onChanged: (value) =>
-                  ref.read(darkModeProvider.notifier).state = value,
+                  ref.read(darkModeProvider.notifier).set(value),
               activeColor: AppTheme.primaryColor,
             ),
           ),
@@ -296,7 +338,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: Switch(
               value: useMetric,
               onChanged: (value) =>
-                  ref.read(metricUnitsProvider.notifier).state = value,
+                  ref.read(metricUnitsProvider.notifier).set(value),
               activeColor: AppTheme.primaryColor,
             ),
           ),
@@ -352,7 +394,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: Switch(
               value: notifications,
               onChanged: (value) =>
-                  ref.read(notificationsProvider.notifier).state = value,
+                  ref.read(notificationsProvider.notifier).set(value),
               activeColor: AppTheme.primaryColor,
             ),
           ),
@@ -365,7 +407,7 @@ class SettingsScreen extends ConsumerWidget {
               value: dealAlerts,
               onChanged: notifications
                   ? (value) =>
-                      ref.read(dealAlertsProvider.notifier).state = value
+                      ref.read(dealAlertsProvider.notifier).set(value)
                   : null,
               activeColor: AppTheme.primaryColor,
             ),
@@ -374,12 +416,15 @@ class SettingsScreen extends ConsumerWidget {
           _buildSettingTile(
             icon: Iconsax.timer_1,
             title: 'Ablauf-Erinnerungen',
-            subtitle: 'Vor Ablauf von Zutaten erinnern',
-            trailing: const Icon(
-              Iconsax.arrow_right_3,
-              color: AppTheme.textSecondary,
+            subtitle: 'Kommt bald',
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('Bald', style: TextStyle(fontSize: 11, color: AppTheme.primaryColor)),
             ),
-            onTap: () {},
           ),
         ],
       ),
@@ -413,12 +458,11 @@ class SettingsScreen extends ConsumerWidget {
           _buildSettingTile(
             icon: Iconsax.shop,
             title: 'Bevorzugte Supermärkte',
-            subtitle: 'Angebote dieser Märkte priorisieren',
+            subtitle: 'Alle Supermärkte aktiv',
             trailing: const Icon(
               Iconsax.arrow_right_3,
               color: AppTheme.textSecondary,
             ),
-            onTap: () {},
           ),
           const Divider(height: 1),
           Padding(
@@ -506,7 +550,7 @@ class SettingsScreen extends ConsumerWidget {
               Iconsax.arrow_right_3,
               color: AppTheme.textSecondary,
             ),
-            onTap: () {},
+            onTap: () => _openUrl('https://sparkoch.de/datenschutz'),
           ),
           const Divider(height: 1),
           _buildSettingTile(
@@ -517,7 +561,7 @@ class SettingsScreen extends ConsumerWidget {
               Iconsax.arrow_right_3,
               color: AppTheme.textSecondary,
             ),
-            onTap: () {},
+            onTap: () => _openUrl('https://sparkoch.de/agb'),
           ),
           const Divider(height: 1),
           _buildSettingTile(
@@ -528,7 +572,7 @@ class SettingsScreen extends ConsumerWidget {
               Iconsax.arrow_right_3,
               color: AppTheme.textSecondary,
             ),
-            onTap: () {},
+            onTap: () => _openUrl('mailto:support@fwstudios.de'),
           ),
           const Divider(height: 1),
           _buildSettingTile(
@@ -539,7 +583,7 @@ class SettingsScreen extends ConsumerWidget {
               Iconsax.arrow_right_3,
               color: AppTheme.textSecondary,
             ),
-            onTap: () {},
+            onTap: () => _openUrl('https://apps.apple.com/app/sparkoch/id0000000000'),
           ),
         ],
       ),
@@ -583,6 +627,13 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  void _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
   void _showLanguageDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -615,8 +666,8 @@ class SettingsScreen extends ConsumerWidget {
       title: Text(language),
       trailing: isSelected
           ? const Icon(Iconsax.tick_circle, color: AppTheme.primaryColor)
-          : null,
-      onTap: () {},
+          : const Text('Bald', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      onTap: isSelected ? null : () {},
     );
   }
 
@@ -637,17 +688,25 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Abbrechen'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Cache wurde geleert'),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            onPressed: () async {
+              try {
+                // Clear all Hive boxes
+                await Hive.box('ingredients').clear();
+                await Hive.box('recipes').clear();
+                await Hive.box('deals').clear();
+              } catch (_) {}
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Cache wurde geleert'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-              );
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,

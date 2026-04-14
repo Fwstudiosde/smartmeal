@@ -197,33 +197,21 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: Colors.blue[700],
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Standard-Zugangsdaten',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          Icons.admin_panel_settings,
+                          color: Colors.blue[700],
+                          size: 20,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Benutzername: admin\nPasswort: admin123',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue[700],
-                            fontFamily: 'monospace',
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Nur autorisierte Administratoren haben Zugang.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue[700],
+                            ),
                           ),
                         ),
                       ],

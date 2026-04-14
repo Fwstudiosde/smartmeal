@@ -62,6 +62,9 @@ dependencies:
   # Supabase
   supabase_flutter: ^2.5.0
 
+  # URL Launcher
+  url_launcher: ^6.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

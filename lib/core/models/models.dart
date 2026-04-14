@@ -507,16 +507,36 @@ class DealRecipe {
   final List<DealIngredient> dealIngredients;
   final double totalSavings;
   final double totalCost;
-  
+
   const DealRecipe({
     required this.recipe,
     required this.dealIngredients,
     required this.totalSavings,
     required this.totalCost,
   });
-  
-  double get savingsPercentage => 
+
+  double get savingsPercentage =>
       totalSavings / (totalCost + totalSavings) * 100;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'recipe': recipe.toJson(),
+      'dealIngredients': dealIngredients.map((e) => e.toJson()).toList(),
+      'totalSavings': totalSavings,
+      'totalCost': totalCost,
+    };
+  }
+
+  factory DealRecipe.fromJson(Map<String, dynamic> json) {
+    return DealRecipe(
+      recipe: Recipe.fromJson(json['recipe']),
+      dealIngredients: (json['dealIngredients'] as List<dynamic>)
+          .map((e) => DealIngredient.fromJson(e))
+          .toList(),
+      totalSavings: (json['totalSavings'] as num).toDouble(),
+      totalCost: (json['totalCost'] as num).toDouble(),
+    );
+  }
 }
 
 class DealIngredient {
@@ -525,7 +545,7 @@ class DealIngredient {
   final String storeName;
   final double price;
   final double? savings;
-  
+
   const DealIngredient({
     required this.ingredient,
     this.deal,
@@ -533,6 +553,26 @@ class DealIngredient {
     required this.price,
     this.savings,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ingredient': ingredient.toJson(),
+      'deal': deal?.toJson(),
+      'storeName': storeName,
+      'price': price,
+      'savings': savings,
+    };
+  }
+
+  factory DealIngredient.fromJson(Map<String, dynamic> json) {
+    return DealIngredient(
+      ingredient: RecipeIngredient.fromJson(json['ingredient']),
+      deal: json['deal'] != null ? Deal.fromJson(json['deal']) : null,
+      storeName: json['storeName'] as String,
+      price: (json['price'] as num).toDouble(),
+      savings: (json['savings'] as num?)?.toDouble(),
+    );
+  }
 }
 
 // ==================== SUPERMARKET MODEL ====================
@@ -659,6 +699,28 @@ class PlannedMeal {
       isCooked: isCooked ?? this.isCooked,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'dealRecipe': dealRecipe.toJson(),
+      'date': date.toIso8601String(),
+      'mealType': mealType.name,
+      'servings': servings,
+      'isCooked': isCooked,
+    };
+  }
+
+  factory PlannedMeal.fromJson(Map<String, dynamic> json) {
+    return PlannedMeal(
+      id: json['id'] as String,
+      dealRecipe: DealRecipe.fromJson(json['dealRecipe']),
+      date: DateTime.parse(json['date'] as String),
+      mealType: MealType.values.firstWhere((e) => e.name == json['mealType']),
+      servings: json['servings'] as int,
+      isCooked: json['isCooked'] as bool? ?? false,
+    );
+  }
 }
 
 class ShoppingListItem {
@@ -779,6 +841,24 @@ class MealPlan {
       id: id ?? this.id,
       weekStart: weekStart ?? this.weekStart,
       meals: meals ?? this.meals,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'weekStart': weekStart.toIso8601String(),
+      'meals': meals.map((m) => m.toJson()).toList(),
+    };
+  }
+
+  factory MealPlan.fromJson(Map<String, dynamic> json) {
+    return MealPlan(
+      id: json['id'] as String,
+      weekStart: DateTime.parse(json['weekStart'] as String),
+      meals: (json['meals'] as List<dynamic>)
+          .map((e) => PlannedMeal.fromJson(e))
+          .toList(),
     );
   }
 }

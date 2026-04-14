@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/core/services/api/deals_api_client.dart';
+import 'package:smartmeal/core/config/supabase_config.dart';
 import 'package:uuid/uuid.dart';
 
 // Provider for Backend Data Source
@@ -24,35 +25,42 @@ class DealsService {
   /// Gets list of available supermarkets
   Future<List<Supermarket>> getSupermarkets() async {
     try {
-      // Try to fetch from backend first
       final supermarkets = await backendDataSource.getSupermarkets();
       if (supermarkets.isNotEmpty) {
         return supermarkets;
       }
-    } catch (e) {
-      print('Error fetching supermarkets from backend, using fallback: $e');
-    }
+    } catch (_) {}
 
-    // Fallback to predefined list
     return Supermarket.all;
   }
 
-  /// Fetches current deals from backend API
+  /// Fetches current deals - tries backend API first, falls back to Supabase
   Future<List<Deal>> fetchDeals({List<String>? storeIds}) async {
+    // Try backend API first
     try {
-      // Fetch real deals from backend
       final deals = await backendDataSource.fetchDeals(storeIds: storeIds);
+      if (deals.isNotEmpty) return deals;
+    } catch (_) {}
 
-      if (deals.isNotEmpty) {
-        return deals;
+    // Fallback: read directly from Supabase deals table
+    try {
+      var query = SupabaseConfig.client
+          .from('deals')
+          .select()
+          .gte('valid_until', DateTime.now().toIso8601String());
+
+      if (storeIds != null && storeIds.isNotEmpty) {
+        query = query.inFilter('store_name', storeIds);
       }
 
-      // If no deals from backend, return empty list (no fallback to mock data)
-      return [];
-    } catch (e) {
-      print('Error fetching deals from backend: $e');
+      final response = await query.order('discount_percentage', ascending: false);
+      final data = response as List<dynamic>;
 
-      // Return empty list on error (no mock data fallback)
+      return data.map((json) {
+        final map = Map<String, dynamic>.from(json);
+        return Deal.fromBackendJson(map);
+      }).toList();
+    } catch (_) {
       return [];
     }
   }

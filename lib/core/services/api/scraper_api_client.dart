@@ -1,17 +1,19 @@
 import 'package:dio/dio.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/core/services/api/deals_api_client.dart';
+import 'package:smartmeal/core/config/supabase_config.dart';
 
 /// Client for the SmartMeal Scraper API
-/// This connects to your local Python backend that scrapes supermarket deals
+/// This connects to the Python backend that scrapes supermarket deals
 class ScraperApiClient implements DealsDataSource {
   final Dio _dio;
   final String baseUrl;
 
   ScraperApiClient({
-    this.baseUrl = 'http://localhost:8000',
+    String? baseUrl,
     Dio? dio,
-  }) : _dio = dio ?? Dio() {
+  }) : baseUrl = baseUrl ?? BackendConfig.baseUrl,
+       _dio = dio ?? Dio() {
     _configureDio();
   }
 
@@ -183,7 +185,7 @@ class ScraperApiClient implements DealsDataSource {
         storeLogoUrl: _getStoreLogoUrl(data['store_name'] as String),
         originalPrice: (data['original_price'] as num).toDouble(),
         discountPrice: (data['discount_price'] as num).toDouble(),
-        discountPercentage: (data['discount_percentage'] as num).toInt(),
+        discountPercentage: (data['discount_percentage'] as num).toDouble(),
         imageUrl: data['image_url'] as String?,
         validFrom: DateTime.parse(data['valid_from'] as String),
         validUntil: DateTime.parse(data['valid_until'] as String),

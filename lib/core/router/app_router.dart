@@ -36,6 +36,17 @@ final authStateNotifierProvider = Provider<AuthStateNotifier>((ref) {
   return AuthStateNotifier(ref);
 });
 
+// Admin email whitelist - add admin emails here
+const _adminEmails = <String>{
+  'finn-weinnoldt@outlook.de',
+  'accounts@fwstudios.de',
+};
+
+bool _isAdminEmail(String? email) {
+  if (email == null) return false;
+  return _adminEmails.contains(email.toLowerCase());
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authStateNotifier = ref.watch(authStateNotifierProvider);
 
@@ -57,7 +68,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // If authenticated and going to welcome, redirect based on user
       if (isAuth && isGoingToWelcome) {
         // Check if user is admin account - redirect to admin verification
-        if (userEmail == 'finn-weinnoldt@outlook.de') {
+        if (_isAdminEmail(userEmail)) {
           return '/admin/verify';
         }
         // Regular user - redirect to home
@@ -65,7 +76,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // If authenticated as admin user and going to home, redirect to admin verify
-      if (isAuth && userEmail == 'finn-weinnoldt@outlook.de' && state.matchedLocation == '/') {
+      if (isAuth && _isAdminEmail(userEmail) && state.matchedLocation == '/') {
         return '/admin/verify';
       }
 

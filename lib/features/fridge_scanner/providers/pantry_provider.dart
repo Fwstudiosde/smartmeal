@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/core/services/api/open_food_facts_client.dart';
 
@@ -13,7 +15,37 @@ final pantryProvider = StateNotifierProvider<PantryNotifier, List<PantryItem>>((
 });
 
 class PantryNotifier extends StateNotifier<List<PantryItem>> {
-  PantryNotifier() : super([]);
+  static const _boxName = 'ingredients';
+  static const _key = 'pantry_items';
+
+  PantryNotifier() : super([]) {
+    _loadFromHive();
+  }
+
+  void _loadFromHive() {
+    try {
+      final box = Hive.box(_boxName);
+      final jsonList = box.get(_key) as List<dynamic>?;
+      if (jsonList != null) {
+        state = jsonList
+            .map((e) => PantryItem.fromJson(Map<String, dynamic>.from(jsonDecode(e as String))))
+            .toList();
+      }
+    } catch (_) {
+      // First launch or corrupted data - start fresh
+      state = [];
+    }
+  }
+
+  void _saveToHive() {
+    try {
+      final box = Hive.box(_boxName);
+      final jsonList = state.map((item) => jsonEncode(item.toJson())).toList();
+      box.put(_key, jsonList);
+    } catch (_) {
+      // Storage error - continue with in-memory state
+    }
+  }
 
   void addItem(PantryItem item) {
     // Check if barcode already exists, increase quantity
@@ -25,10 +57,12 @@ class PantryNotifier extends StateNotifier<List<PantryItem>> {
     } else {
       state = [item, ...state];
     }
+    _saveToHive();
   }
 
   void removeItem(String id) {
     state = state.where((item) => item.id != id).toList();
+    _saveToHive();
   }
 
   void decreaseQuantity(String id) {
@@ -40,6 +74,7 @@ class PantryNotifier extends StateNotifier<List<PantryItem>> {
       removeItem(id);
     } else {
       state = [...state]..[index] = item.copyWith(quantity: item.quantity - 1);
+      _saveToHive();
     }
   }
 
@@ -50,10 +85,12 @@ class PantryNotifier extends StateNotifier<List<PantryItem>> {
     state = [...state]..[index] = state[index].copyWith(
       quantity: state[index].quantity + 1,
     );
+    _saveToHive();
   }
 
   void clear() {
     state = [];
+    _saveToHive();
   }
 }
 

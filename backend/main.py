@@ -120,17 +120,54 @@ def remove_duplicate_deals(deals: List[Dict]) -> List[Dict]:
 
 
 def save_deals(deals: List[Dict]):
-    """Save deals to cache file after removing duplicates"""
+    """Save deals to cache file and Supabase after removing duplicates"""
     try:
         # Remove duplicates before saving
         unique_deals = remove_duplicate_deals(deals)
 
+        # Save to local cache file
         with open(DEALS_FILE, 'w', encoding='utf-8') as f:
             json.dump(unique_deals, f, ensure_ascii=False, indent=2)
 
-        print(f"Saved {len(unique_deals)} unique deals")
+        print(f"Saved {len(unique_deals)} unique deals to cache")
+
+        # Also persist to Supabase
+        _sync_deals_to_supabase(unique_deals)
     except Exception as e:
         print(f"Error saving deals: {e}")
+
+
+def _sync_deals_to_supabase(deals: List[Dict]):
+    """Sync deals to Supabase database"""
+    try:
+        from supabase_client import SupabaseClient
+        db = SupabaseClient()
+
+        # Convert deals to Supabase format
+        supabase_deals = []
+        for deal in deals:
+            supabase_deal = {
+                'product_name': deal.get('product_name', ''),
+                'store_name': deal.get('store_name', ''),
+                'original_price': deal.get('original_price'),
+                'discount_price': deal.get('discount_price'),
+                'discount_percentage': deal.get('discount_percentage'),
+                'valid_from': deal.get('valid_from', datetime.now().isoformat()),
+                'valid_until': deal.get('valid_until', (datetime.now() + timedelta(days=7)).isoformat()),
+                'category': deal.get('category'),
+                'description': deal.get('description'),
+                'image_url': deal.get('image_url', ''),
+            }
+            # Only add deals with valid product names
+            if supabase_deal['product_name']:
+                supabase_deals.append(supabase_deal)
+
+        if supabase_deals:
+            db.upsert_deals(supabase_deals)
+            print(f"Synced {len(supabase_deals)} deals to Supabase")
+    except Exception as e:
+        print(f"Warning: Could not sync deals to Supabase: {e}")
+        # Non-fatal - deals are still in local cache
 
 
 async def scrape_all_stores():

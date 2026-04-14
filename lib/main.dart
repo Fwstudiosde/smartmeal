@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smartmeal/core/theme/app_theme.dart';
 import 'package:smartmeal/core/router/app_router.dart';
 import 'package:smartmeal/core/config/supabase_config.dart';
+import 'package:smartmeal/features/settings/presentation/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,13 +41,14 @@ class SmartMealApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    
+    final isDarkMode = ref.watch(darkModeProvider);
+
     return MaterialApp.router(
       title: 'SmartMeal',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light,
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       routerConfig: router,
     );
   }
