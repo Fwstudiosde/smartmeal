@@ -112,6 +112,20 @@ async def send_deal_alerts(new_deals: List[Dict], supabase_client) -> int:
                     'deal_count': str(len(store_deals)),
                 },
                 topic=topic,
+                android=messaging.AndroidConfig(
+                    priority='high',
+                    notification=messaging.AndroidNotification(
+                        channel_id='deal_alerts',
+                    ),
+                ),
+                apns=messaging.APNSConfig(
+                    payload=messaging.APNSPayload(
+                        aps=messaging.Aps(
+                            sound='default',
+                            badge=1,
+                        ),
+                    ),
+                ),
             )
 
             response = messaging.send(message)
@@ -122,3 +136,124 @@ async def send_deal_alerts(new_deals: List[Dict], supabase_client) -> int:
             logger.error(f"Error sending notification for {store_name}: {e}")
 
     return sent_count
+
+
+async def send_to_topic(topic: str, title: str, body: str, data: Optional[Dict[str, str]] = None) -> str:
+    """
+    Send a push notification to a specific FCM topic.
+
+    Args:
+        topic: FCM topic name (e.g. 'deals_lidl', 'all_users')
+        title: Notification title
+        body: Notification body text
+        data: Optional data payload
+
+    Returns:
+        FCM response message ID
+    """
+    if not _initialize_firebase():
+        raise RuntimeError("Firebase not initialized")
+
+    message = messaging.Message(
+        notification=messaging.Notification(title=title, body=body),
+        data=data or {},
+        topic=topic,
+        android=messaging.AndroidConfig(
+            priority='high',
+            notification=messaging.AndroidNotification(channel_id='deal_alerts'),
+        ),
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(sound='default', badge=1),
+            ),
+        ),
+    )
+
+    response = messaging.send(message)
+    logger.info(f"Notification sent to topic '{topic}': {response}")
+    return response
+
+
+async def send_to_tokens(tokens: List[str], title: str, body: str, data: Optional[Dict[str, str]] = None) -> Dict:
+    """
+    Send a push notification to specific device tokens.
+
+    Args:
+        tokens: List of FCM device tokens
+        title: Notification title
+        body: Notification body text
+        data: Optional data payload
+
+    Returns:
+        Dict with success_count, failure_count, and failed_tokens
+    """
+    if not _initialize_firebase():
+        raise RuntimeError("Firebase not initialized")
+
+    if not tokens:
+        return {"success_count": 0, "failure_count": 0, "failed_tokens": []}
+
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(title=title, body=body),
+        data=data or {},
+        tokens=tokens,
+        android=messaging.AndroidConfig(
+            priority='high',
+            notification=messaging.AndroidNotification(channel_id='deal_alerts'),
+        ),
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(sound='default', badge=1),
+            ),
+        ),
+    )
+
+    response = messaging.send_each_for_multicast(message)
+
+    failed_tokens = []
+    for i, send_response in enumerate(response.responses):
+        if not send_response.success:
+            failed_tokens.append(tokens[i])
+            logger.warning(f"Failed to send to token {tokens[i][:20]}...: {send_response.exception}")
+
+    logger.info(f"Multicast: {response.success_count} success, {response.failure_count} failed")
+
+    return {
+        "success_count": response.success_count,
+        "failure_count": response.failure_count,
+        "failed_tokens": failed_tokens,
+    }
+
+
+async def send_to_all_users(title: str, body: str, data: Optional[Dict[str, str]] = None) -> Dict:
+    """
+    Send a push notification to all users with registered FCM tokens via Supabase.
+
+    Args:
+        title: Notification title
+        body: Notification body text
+        data: Optional data payload
+
+    Returns:
+        Dict with success_count, failure_count
+    """
+    try:
+        from supabase_client import SupabaseClient
+        db = SupabaseClient()
+
+        # Fetch all FCM tokens from user_profiles
+        result = db.client.table('user_profiles').select('fcm_token').not_.is_('fcm_token', 'null').execute()
+        tokens = [row['fcm_token'] for row in result.data if row.get('fcm_token')]
+
+        if not tokens:
+            logger.info("No FCM tokens found in user_profiles")
+            return {"success_count": 0, "failure_count": 0, "total_tokens": 0}
+
+        logger.info(f"Sending notification to {len(tokens)} devices")
+        result = await send_to_tokens(tokens, title, body, data)
+        result["total_tokens"] = len(tokens)
+        return result
+
+    except Exception as e:
+        logger.error(f"Error sending to all users: {e}")
+        raise

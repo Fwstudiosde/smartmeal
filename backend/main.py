@@ -23,7 +23,7 @@ from scrapers.netto_scraper import NettoScraper
 from chefkoch_scraper import ChefkochScraper
 
 # Import notification service
-from notification_service import send_deal_alerts
+from notification_service import send_deal_alerts, send_to_topic, send_to_tokens, send_to_all_users
 
 # Import admin functionality
 from auth import (
@@ -1061,6 +1061,105 @@ async def clear_all_deals(admin: str = Depends(require_admin)):
         "status": "success",
         "message": "All deals cleared"
     }
+
+
+# ========================================
+# PUSH NOTIFICATION ENDPOINTS (ADMIN)
+# ========================================
+
+class SendNotificationRequest(BaseModel):
+    title: str
+    body: str
+    topic: Optional[str] = None
+    data: Optional[Dict[str, str]] = None
+
+
+class SendToAllRequest(BaseModel):
+    title: str
+    body: str
+    data: Optional[Dict[str, str]] = None
+
+
+@app.post("/api/admin/notifications/send")
+async def send_notification(
+    request: SendNotificationRequest,
+    admin: str = Depends(require_admin)
+):
+    """
+    Send a push notification to a specific topic or all users.
+    If topic is provided, sends to that topic. Otherwise sends to all registered devices.
+    """
+    try:
+        if request.topic:
+            response = await send_to_topic(
+                topic=request.topic,
+                title=request.title,
+                body=request.body,
+                data=request.data,
+            )
+            return {
+                "status": "success",
+                "message": f"Notification sent to topic '{request.topic}'",
+                "fcm_response": response,
+            }
+        else:
+            result = await send_to_all_users(
+                title=request.title,
+                body=request.body,
+                data=request.data,
+            )
+            return {
+                "status": "success",
+                "message": "Notification sent to all users",
+                **result,
+            }
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
+
+
+@app.post("/api/admin/notifications/send-all")
+async def send_notification_all(
+    request: SendToAllRequest,
+    admin: str = Depends(require_admin)
+):
+    """Send a push notification to ALL registered devices via FCM tokens"""
+    try:
+        result = await send_to_all_users(
+            title=request.title,
+            body=request.body,
+            data=request.data,
+        )
+        return {
+            "status": "success",
+            **result,
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
+
+
+@app.post("/api/admin/notifications/test")
+async def send_test_notification(admin: str = Depends(require_admin)):
+    """Send a test notification to the 'test' topic"""
+    try:
+        response = await send_to_topic(
+            topic="test",
+            title="SparKoch Test",
+            body="Push Notifications funktionieren!",
+            data={"type": "test"},
+        )
+        return {
+            "status": "success",
+            "message": "Test notification sent to topic 'test'",
+            "fcm_response": response,
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send test notification: {str(e)}")
 
 
 # ==================== CHEFKOCH RECIPE IMPORT ====================

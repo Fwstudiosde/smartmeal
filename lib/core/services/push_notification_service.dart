@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:smartmeal/core/config/supabase_config.dart';
 
 /// Background message handler (must be top-level function)
@@ -17,8 +17,32 @@ class PushNotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   bool _initialized = false;
 
+  /// Android notification channel for deal alerts
+  static const AndroidNotificationChannel _dealChannel = AndroidNotificationChannel(
+    'deal_alerts',
+    'Angebots-Benachrichtigungen',
+    description: 'Benachrichtigungen über neue Supermarkt-Angebote',
+    importance: Importance.high,
+  );
+
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
   Future<void> initialize() async {
     if (_initialized) return;
+
+    // Create Android notification channel
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_dealChannel);
+
+    // Initialize local notifications for foreground display
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    await _localNotifications.initialize(
+      const InitializationSettings(android: androidSettings, iOS: iosSettings),
+    );
 
     // Request permission
     final settings = await _messaging.requestPermission(
@@ -39,11 +63,18 @@ class PushNotificationService {
       // Listen for token refresh
       _messaging.onTokenRefresh.listen(_saveToken);
 
-      // Handle foreground messages
+      // Handle foreground messages — show as local notification
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
       // Handle background messages
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+      // Show notification on iOS even when app is in foreground
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
       _initialized = true;
       debugPrint('Push notifications initialized with token: ${token?.substring(0, 20)}...');
@@ -71,9 +102,28 @@ class PushNotificationService {
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('Foreground message: ${message.notification?.title}');
-    // The notification will be shown automatically by the system
-    // on iOS. On Android, we might need to show it via local notifications.
+    final notification = message.notification;
+    if (notification == null) return;
+
+    // Show as local notification on Android (iOS handles it via setForegroundNotificationPresentationOptions)
+    _localNotifications.show(
+      notification.hashCode,
+      notification.title,
+      notification.body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _dealChannel.id,
+          _dealChannel.name,
+          channelDescription: _dealChannel.description,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+    );
   }
 
   /// Subscribe to deal alerts for specific supermarkets
