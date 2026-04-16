@@ -1,7 +1,12 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smartmeal/core/config/supabase_config.dart';
+import 'package:smartmeal/core/auth/providers/auth_provider.dart';
 import 'package:smartmeal/core/auth/providers/community_profile_provider.dart';
 import '../providers/custom_recipes_provider.dart';
 
@@ -27,6 +32,8 @@ class _CreateCustomRecipeScreenState
   final List<String> _instructions = [];
   bool _isPublic = false;
   bool _isLoading = false;
+  Uint8List? _imageBytes;
+  String? _imageExt;
 
   @override
   void dispose() {
@@ -36,6 +43,88 @@ class _CreateCustomRecipeScreenState
     _cookTimeController.dispose();
     _servingsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1200,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _imageBytes = bytes;
+      _imageExt = picked.path.split('.').last.toLowerCase();
+    });
+  }
+
+  void _showImagePickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Iconsax.camera, color: Color(0xFF2E7D32)),
+                title: const Text('Kamera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Iconsax.gallery, color: Color(0xFF2E7D32)),
+                title: const Text('Galerie'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              if (_imageBytes != null)
+                ListTile(
+                  leading: const Icon(Iconsax.trash, color: Colors.red),
+                  title: const Text('Bild entfernen'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _imageBytes = null;
+                      _imageExt = null;
+                    });
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _uploadRecipeImage() async {
+    if (_imageBytes == null) return null;
+    try {
+      final userId = ref.read(authProvider).user?.id;
+      if (userId == null) return null;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final path = '$userId/recipe_$timestamp.$_imageExt';
+      await SupabaseConfig.client.storage.from('recipe-images').uploadBinary(
+        path,
+        _imageBytes!,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      return SupabaseConfig.client.storage.from('recipe-images').getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading recipe image: $e');
+      return null;
+    }
   }
 
   void _addIngredient() {
@@ -144,6 +233,12 @@ class _CreateCustomRecipeScreenState
     setState(() => _isLoading = true);
 
     try {
+      // Upload image if selected
+      String? imageUrl;
+      if (_imageBytes != null) {
+        imageUrl = await _uploadRecipeImage();
+      }
+
       await ref.read(customRecipesProvider.notifier).createRecipe(
             name: _nameController.text.trim(),
             description: _descriptionController.text.trim(),
@@ -155,6 +250,7 @@ class _CreateCustomRecipeScreenState
             instructions: _instructions,
             isPublic: _isPublic,
             authorName: _isPublic ? ref.read(displayNameProvider) : null,
+            imageUrl: imageUrl,
           );
 
       if (mounted) {
@@ -222,6 +318,57 @@ class _CreateCustomRecipeScreenState
                 if (value == null || value.isEmpty) return 'Bitte Beschreibung eingeben';
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+
+            // Recipe Image
+            GestureDetector(
+              onTap: _showImagePickerSheet,
+              child: Container(
+                height: 180,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[300]!),
+                  image: _imageBytes != null
+                      ? DecorationImage(
+                          image: MemoryImage(_imageBytes!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: _imageBytes == null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Iconsax.camera, size: 40, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Foto hinzufuegen (optional)',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                          ),
+                        ],
+                      )
+                    : Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Iconsax.edit, color: Colors.white, size: 20),
+                              onPressed: _showImagePickerSheet,
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(6),
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
             ),
             const SizedBox(height: 16),
 

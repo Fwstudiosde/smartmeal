@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,10 +44,12 @@ class LocaleNotifier extends StateNotifier<Locale> {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase (not available on web)
+  if (!kIsWeb) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   // Initialize Supabase
   await SupabaseConfig.initialize();
@@ -58,14 +61,16 @@ void main() async {
   await Hive.openBox('deals');
   await Hive.openBox('settings');
 
-  // Initialize local notifications
-  final notificationService = NotificationService();
-  await notificationService.initialize();
-  await notificationService.requestPermissions();
+  // Initialize notifications (not available on web)
+  if (!kIsWeb) {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+    await notificationService.requestPermissions();
 
-  // Initialize push notifications (Firebase Cloud Messaging)
-  final pushService = PushNotificationService();
-  await pushService.initialize();
+    // Initialize push notifications (Firebase Cloud Messaging)
+    final pushService = PushNotificationService();
+    await pushService.initialize();
+  }
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(

@@ -15,6 +15,7 @@ class CustomRecipe {
   final List<String> instructions;
   final bool isPublic;
   final String? authorName;
+  final String? imageUrl;
   final DateTime createdAt;
   final int likeCount;
   final bool isLikedByMe;
@@ -32,6 +33,7 @@ class CustomRecipe {
     required this.instructions,
     this.isPublic = false,
     this.authorName,
+    this.imageUrl,
     required this.createdAt,
     this.likeCount = 0,
     this.isLikedByMe = false,
@@ -57,6 +59,7 @@ class CustomRecipe {
           [],
       isPublic: json['is_public'] as bool? ?? false,
       authorName: json['author_name'] as String?,
+      imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       likeCount: likeCount,
       isLikedByMe: isLikedByMe,
@@ -159,7 +162,7 @@ class CustomRecipesNotifier extends StateNotifier<CustomRecipesState> {
         prepTime: r.prepTime, cookTime: r.cookTime, servings: r.servings,
         difficulty: r.difficulty, ingredients: r.ingredients,
         instructions: r.instructions, isPublic: r.isPublic,
-        authorName: r.authorName, createdAt: r.createdAt,
+        authorName: r.authorName, imageUrl: r.imageUrl, createdAt: r.createdAt,
         likeCount: r.isLikedByMe ? r.likeCount - 1 : r.likeCount + 1,
         isLikedByMe: !r.isLikedByMe,
       );
@@ -198,6 +201,7 @@ class CustomRecipesNotifier extends StateNotifier<CustomRecipesState> {
         difficulty: r.difficulty, ingredients: r.ingredients,
         instructions: r.instructions, createdAt: r.createdAt,
         likeCount: r.likeCount, isLikedByMe: r.isLikedByMe,
+        imageUrl: r.imageUrl,
         isPublic: !r.isPublic,
         authorName: authorName ?? r.authorName,
       );
@@ -226,6 +230,7 @@ class CustomRecipesNotifier extends StateNotifier<CustomRecipesState> {
     required List<String> instructions,
     bool isPublic = false,
     String? authorName,
+    String? imageUrl,
   }) async {
     if (userId == null) throw Exception('Nicht angemeldet');
 
@@ -243,6 +248,7 @@ class CustomRecipesNotifier extends StateNotifier<CustomRecipesState> {
         'instructions': instructions,
         'is_public': isPublic,
         'author_name': authorName,
+        if (imageUrl != null) 'image_url': imageUrl,
       });
 
       await loadRecipes();

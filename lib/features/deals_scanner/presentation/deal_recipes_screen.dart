@@ -363,6 +363,7 @@ class DealRecipesScreen extends ConsumerWidget {
         id: c.id,
         name: c.name,
         description: c.description,
+        imageUrl: c.imageUrl,
         prepTime: c.prepTime,
         cookTime: c.cookTime,
         servings: c.servings,
@@ -576,6 +577,37 @@ class DealRecipesScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildCardPlaceholder(String name) {
+    final colors = [
+      const Color(0xFF2E7D32),
+      const Color(0xFF1565C0),
+      const Color(0xFFE65100),
+      const Color(0xFF6A1B9A),
+      const Color(0xFF00838F),
+      const Color(0xFFC62828),
+    ];
+    final color = colors[name.length % colors.length];
+
+    return Container(
+      height: 180,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.7), color.withOpacity(0.3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Iconsax.reserve,
+          size: 48,
+          color: Colors.white.withOpacity(0.5),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDealRecipeCard(
     BuildContext context,
     DealRecipe dealRecipe,
@@ -608,21 +640,16 @@ class DealRecipesScreen extends ConsumerWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(20),
                 ),
-                child: Image.network(
-                  dealRecipe.recipe.imageUrl ?? '',
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 180,
-                    color: AppTheme.primaryLight,
-                    child: const Icon(
-                      Iconsax.gallery,
-                      size: 48,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ),
+                child: (dealRecipe.recipe.imageUrl != null && dealRecipe.recipe.imageUrl!.isNotEmpty)
+                    ? Image.network(
+                        dealRecipe.recipe.imageUrl!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildCardPlaceholder(dealRecipe.recipe.name),
+                      )
+                    : _buildCardPlaceholder(dealRecipe.recipe.name),
               ),
               Positioned(
                 top: 12,

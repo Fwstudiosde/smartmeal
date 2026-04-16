@@ -54,6 +54,13 @@ class DisplayNameNotifier extends StateNotifier<String?> {
           'community_name': name,
           'updated_at': DateTime.now().toIso8601String(),
         });
+
+        // Update author_name in all public recipes by this user
+        await SupabaseConfig.client
+            .from('custom_recipes')
+            .update({'author_name': name})
+            .eq('user_id', userId!)
+            .eq('is_public', true);
       } catch (e) {
         debugPrint('Error syncing community name: $e');
       }
