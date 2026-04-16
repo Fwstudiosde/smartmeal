@@ -12,9 +12,13 @@ import '../../../core/auth/providers/community_profile_provider.dart';
 import '../../fridge_scanner/providers/fridge_providers.dart';
 import '../../community/providers/user_profile_provider.dart';
 import '../../community/providers/follow_provider.dart';
+import '../../community/providers/saved_recipes_provider.dart';
 
 // Selected Category Filter Provider
 final selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
+
+// Sub-tab for "Eigene": 0 = Eigene, 1 = Gespeichert
+final ownSubTabProvider = StateProvider<int>((ref) => 0);
 
 class DealRecipesScreen extends ConsumerWidget {
   const DealRecipesScreen({super.key});
@@ -406,8 +410,17 @@ class DealRecipesScreen extends ConsumerWidget {
     List<DealRecipe> filteredRecipes;
 
     if (selectedCategory == 'custom') {
-      // "Eigene" - own recipes + saved recipes
-      filteredRecipes = _customToDeals(ownRecipes, 'custom', customMap);
+      // "Eigene" tab — split into own and saved via sub-tab
+      final subTab = ref.watch(ownSubTabProvider);
+      if (subTab == 0) {
+        // Only own recipes
+        final myRecipes = ref.watch(ownRecipesProvider);
+        filteredRecipes = _customToDeals(myRecipes, 'custom', customMap);
+      } else {
+        // Only saved recipes
+        final saved = ref.watch(savedRecipesListProvider);
+        filteredRecipes = _customToDeals(saved, 'custom', customMap);
+      }
     } else if (selectedCategory == 'community') {
       // "Community" - all public recipes (including own)
       filteredRecipes = _customToDeals(communityRecipes, 'community', customMap);
@@ -470,6 +483,9 @@ class DealRecipesScreen extends ConsumerWidget {
         // Show story circles when community tab is active
         if (selectedCategory == 'community')
           _FollowingStoriesRow(),
+        // Show sub-tab toggle when "Eigene" is active
+        if (selectedCategory == 'custom')
+          _OwnSavedToggle(),
         Expanded(
           child: filteredRecipes.isEmpty
               ? _buildEmptyFilterState()
@@ -1084,6 +1100,74 @@ class DealRecipesScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OwnSavedToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(ownSubTabProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => ref.read(ownSubTabProvider.notifier).state = 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: selected == 0 ? AppTheme.primaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  margin: const EdgeInsets.all(3),
+                  child: Center(
+                    child: Text(
+                      'Eigene',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: selected == 0 ? Colors.white : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => ref.read(ownSubTabProvider.notifier).state = 1,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: selected == 1 ? AppTheme.primaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  margin: const EdgeInsets.all(3),
+                  child: Center(
+                    child: Text(
+                      'Gespeichert',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: selected == 1 ? Colors.white : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
