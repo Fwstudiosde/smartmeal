@@ -488,11 +488,22 @@ class DealRecipesScreen extends ConsumerWidget {
           _OwnSavedToggle(),
         Expanded(
           child: filteredRecipes.isEmpty
-              ? _buildEmptyFilterState()
+              ? (selectedCategory == 'custom' && ref.watch(ownSubTabProvider) == 0
+                  ? _buildOwnEmptyState(context)
+                  : _buildEmptyFilterState())
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredRecipes.length,
+                  // +1 for add button when on "Eigene" sub-tab
+                  itemCount: (selectedCategory == 'custom' && ref.watch(ownSubTabProvider) == 0)
+                      ? filteredRecipes.length + 1
+                      : filteredRecipes.length,
                   itemBuilder: (context, index) {
+                    // Last item = add button
+                    if (selectedCategory == 'custom' &&
+                        ref.watch(ownSubTabProvider) == 0 &&
+                        index == filteredRecipes.length) {
+                      return _buildAddRecipeButton(context);
+                    }
                     final dealRecipe = filteredRecipes[index];
                     return _buildDealRecipeCard(context, dealRecipe, index, ref, customMap);
                   },
@@ -619,6 +630,66 @@ class DealRecipesScreen extends ConsumerWidget {
               ),
             ).animate().fadeIn(delay: 200.ms),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOwnEmptyState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Iconsax.receipt_edit, size: 80, color: AppTheme.primaryColor.withOpacity(0.3)),
+            const SizedBox(height: 16),
+            const Text(
+              'Noch keine eigenen Rezepte',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Erstelle dein erstes Rezept und teile es mit der Community!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push('/create-custom-recipe'),
+                icon: const Icon(Iconsax.add_circle, size: 20),
+                label: const Text('Eigenes Rezept erstellen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddRecipeButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16, top: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => context.push('/create-custom-recipe'),
+          icon: const Icon(Iconsax.add_circle, size: 20),
+          label: const Text('Neues Rezept erstellen', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryColor,
+            side: BorderSide(color: AppTheme.primaryColor, width: 1.5),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
         ),
       ),
     );
