@@ -34,6 +34,32 @@ class CommunityScreen extends ConsumerWidget {
         title: const Text('Community'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          Consumer(
+            builder: (context, ref, _) {
+              final userId = ref.watch(authProvider).user?.id;
+              if (userId == null) return const SizedBox.shrink();
+              final profileAsync = ref.watch(userProfileProvider(userId));
+              final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+              final name = profileAsync.valueOrNull?.communityName ?? '';
+
+              return GestureDetector(
+                onTap: () => context.push('/profile/$userId'),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                    child: avatarUrl == null
+                        ? Icon(Iconsax.user, size: 16, color: AppTheme.primaryColor)
+                        : null,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
