@@ -126,16 +126,49 @@ final followedUsersProfilesProvider = FutureProvider<List<FollowedUserProfile>>(
   if (ids.isEmpty) return [];
 
   try {
-    final response = await SupabaseConfig.client
+    // Load profiles
+    final profileResponse = await SupabaseConfig.client
         .from('user_profiles')
         .select('id, community_name, avatar_url')
         .inFilter('id', ids);
 
-    return (response as List).map((e) => FollowedUserProfile(
-      id: e['id'] as String,
-      communityName: e['community_name'] as String?,
-      avatarUrl: e['avatar_url'] as String?,
-    )).toList();
+    final profileMap = <String, Map<String, dynamic>>{};
+    for (final p in (profileResponse as List)) {
+      profileMap[p['id'] as String] = Map<String, dynamic>.from(p);
+    }
+
+    // For users without community_name, fallback to author_name from recipes
+    final missingNameIds = ids.where((id) {
+      final name = profileMap[id]?['community_name'] as String?;
+      return name == null || name.isEmpty;
+    }).toList();
+
+    if (missingNameIds.isNotEmpty) {
+      final recipesResponse = await SupabaseConfig.client
+          .from('custom_recipes')
+          .select('user_id, author_name')
+          .inFilter('user_id', missingNameIds)
+          .eq('is_public', true)
+          .not('author_name', 'is', null);
+
+      for (final r in (recipesResponse as List)) {
+        final uid = r['user_id'] as String;
+        if (profileMap[uid] == null) {
+          profileMap[uid] = {'id': uid, 'community_name': r['author_name'], 'avatar_url': null};
+        } else if ((profileMap[uid]!['community_name'] as String?)?.isEmpty ?? true) {
+          profileMap[uid]!['community_name'] = r['author_name'];
+        }
+      }
+    }
+
+    return ids.map((id) {
+      final p = profileMap[id];
+      return FollowedUserProfile(
+        id: id,
+        communityName: p?['community_name'] as String?,
+        avatarUrl: p?['avatar_url'] as String?,
+      );
+    }).toList();
   } catch (e) {
     debugPrint('Error loading followed profiles: $e');
     return [];
