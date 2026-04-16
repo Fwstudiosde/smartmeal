@@ -12,6 +12,7 @@ class UserProfile {
 }
 
 /// Load a user's profile by ID
+/// Falls back to author_name from their recipes if no community_name in user_profiles
 final userProfileProvider = FutureProvider.family<UserProfile?, String>((ref, userId) async {
   try {
     final response = await SupabaseConfig.client
@@ -20,12 +21,27 @@ final userProfileProvider = FutureProvider.family<UserProfile?, String>((ref, us
         .eq('id', userId)
         .maybeSingle();
 
-    if (response == null) return null;
+    String? name = response?['community_name'] as String?;
+    String? avatarUrl = response?['avatar_url'] as String?;
+
+    // Fallback: get author_name from their public recipes
+    if (name == null || name.isEmpty) {
+      final recipeResponse = await SupabaseConfig.client
+          .from('custom_recipes')
+          .select('author_name')
+          .eq('user_id', userId)
+          .eq('is_public', true)
+          .not('author_name', 'is', null)
+          .limit(1)
+          .maybeSingle();
+
+      name = recipeResponse?['author_name'] as String?;
+    }
 
     return UserProfile(
-      id: response['id'] as String,
-      communityName: response['community_name'] as String?,
-      avatarUrl: response['avatar_url'] as String?,
+      id: userId,
+      communityName: name,
+      avatarUrl: avatarUrl,
     );
   } catch (e) {
     debugPrint('Error loading user profile: $e');
