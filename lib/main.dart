@@ -3,12 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:smartmeal/firebase_options.dart';
 import 'package:smartmeal/l10n/app_localizations.dart';
 import 'package:smartmeal/core/theme/app_theme.dart';
 import 'package:smartmeal/core/router/app_router.dart';
 import 'package:smartmeal/core/config/supabase_config.dart';
 import 'package:smartmeal/features/settings/presentation/settings_screen.dart';
 import 'package:smartmeal/core/services/notification_service.dart';
+import 'package:smartmeal/core/services/push_notification_service.dart';
 
 // Locale provider backed by Hive
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
@@ -40,6 +43,11 @@ class LocaleNotifier extends StateNotifier<Locale> {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   // Initialize Supabase
   await SupabaseConfig.initialize();
 
@@ -54,6 +62,10 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissions();
+
+  // Initialize push notifications (Firebase Cloud Messaging)
+  final pushService = PushNotificationService();
+  await pushService.initialize();
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
