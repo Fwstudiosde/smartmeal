@@ -140,6 +140,8 @@ class UserProfileScreen extends ConsumerWidget {
   ) {
     final name = profile?.communityName ?? 'Anonym';
     final avatarUrl = profile?.avatarUrl;
+    final recipesAsync = ref.watch(userPublicRecipesProvider(userId));
+    final recipeCount = recipesAsync.valueOrNull?.length ?? 0;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -172,21 +174,19 @@ class UserProfileScreen extends ConsumerWidget {
 
           // Stats row
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
+              _buildStat('Rezepte', recipeCount),
+              Container(width: 1, height: 30, color: Colors.grey[300]),
               _buildStat(
                 'Follower',
                 followerCount.when(
-                  data: (c) => c + (isFollowing ? 0 : 0), // already reflected
+                  data: (c) => c,
                   loading: () => 0,
                   error: (_, __) => 0,
                 ),
               ),
-              Container(
-                width: 1, height: 30,
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                color: Colors.grey[300],
-              ),
+              Container(width: 1, height: 30, color: Colors.grey[300]),
               _buildStat(
                 'Folgt',
                 followingCount.when(
@@ -199,14 +199,13 @@ class UserProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // Follow button (not on own profile)
+          // Follow button — always show for other users
           if (!isOwnProfile)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
                   ref.read(followProvider.notifier).toggleFollow(userId);
-                  // Invalidate follower count to refresh
                   ref.invalidate(followerCountProvider(userId));
                 },
                 icon: Icon(
@@ -221,6 +220,7 @@ class UserProfileScreen extends ConsumerWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  elevation: isFollowing ? 0 : 2,
                 ),
               ),
             ),

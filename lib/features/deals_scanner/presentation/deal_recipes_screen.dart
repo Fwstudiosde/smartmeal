@@ -10,6 +10,7 @@ import '../providers/custom_recipes_provider.dart';
 import '../../../core/auth/providers/auth_provider.dart';
 import '../../../core/auth/providers/community_profile_provider.dart';
 import '../../fridge_scanner/providers/fridge_providers.dart';
+import '../../community/providers/user_profile_provider.dart';
 
 // Selected Category Filter Provider
 final selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
@@ -635,24 +636,26 @@ class DealRecipesScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Recipe Image
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
+          // Recipe Image — tap to open recipe detail
+          GestureDetector(
+            onTap: () => context.push('/recipe/${dealRecipe.recipe.id}', extra: dealRecipe),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  child: (dealRecipe.recipe.imageUrl != null && dealRecipe.recipe.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          dealRecipe.recipe.imageUrl!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildCardPlaceholder(dealRecipe.recipe.name),
+                        )
+                      : _buildCardPlaceholder(dealRecipe.recipe.name),
                 ),
-                child: (dealRecipe.recipe.imageUrl != null && dealRecipe.recipe.imageUrl!.isNotEmpty)
-                    ? Image.network(
-                        dealRecipe.recipe.imageUrl!,
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildCardPlaceholder(dealRecipe.recipe.name),
-                      )
-                    : _buildCardPlaceholder(dealRecipe.recipe.name),
-              ),
               if (dealRecipe.totalSavings > 0)
                 Positioned(
                   top: 12,
@@ -687,6 +690,7 @@ class DealRecipesScreen extends ConsumerWidget {
                   ),
                 ),
             ],
+          ),
           ),
           // Recipe Info
           Padding(
@@ -734,18 +738,12 @@ class DealRecipesScreen extends ConsumerWidget {
                       ),
                   ],
                 ),
-                // Author info for community recipes
+                // Author info for community recipes — clickable to profile
                 if (isCustom && customRecipe!.authorName != null && customRecipe.isPublic) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Iconsax.user, size: 14, color: AppTheme.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        customRecipe.authorName!,
-                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                      ),
-                    ],
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => context.push('/profile/${customRecipe.userId}'),
+                    child: _AuthorRow(userId: customRecipe.userId, authorName: customRecipe.authorName!),
                   ),
                 ],
                 // Public toggle for own recipes
@@ -1059,6 +1057,41 @@ class DealRecipesScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AuthorRow extends ConsumerWidget {
+  final String userId;
+  final String authorName;
+
+  const _AuthorRow({required this.userId, required this.authorName});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(userProfileProvider(userId));
+    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 10,
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+          child: avatarUrl == null
+              ? Icon(Iconsax.user, size: 10, color: AppTheme.primaryColor)
+              : null,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          authorName,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
