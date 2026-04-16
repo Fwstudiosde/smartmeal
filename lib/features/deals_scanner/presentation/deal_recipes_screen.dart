@@ -431,6 +431,30 @@ class DealRecipesScreen extends ConsumerWidget {
       }
     }
 
+    // Apply search filter across all recipes (name + ingredients)
+    final searchQuery = ref.watch(searchQueryProvider).toLowerCase().trim();
+    if (searchQuery.isNotEmpty) {
+      // Split into name matches and ingredient-only matches
+      final nameMatches = <DealRecipe>[];
+      final ingredientMatches = <DealRecipe>[];
+
+      for (final dr in filteredRecipes) {
+        final name = dr.recipe.name.toLowerCase();
+        final description = dr.recipe.description.toLowerCase();
+        final ingredients = dr.recipe.ingredients
+            .map((i) => i.name.toLowerCase())
+            .join(' ');
+
+        if (name.contains(searchQuery) || description.contains(searchQuery)) {
+          nameMatches.add(dr);
+        } else if (ingredients.contains(searchQuery)) {
+          ingredientMatches.add(dr);
+        }
+      }
+
+      filteredRecipes = [...nameMatches, ...ingredientMatches];
+    }
+
     // Build allRecipes just for filter chip display
     final allForChips = <DealRecipe>[...dealRecipes];
     allForChips.addAll(_customToDeals(ownRecipes, 'custom', customMap));
