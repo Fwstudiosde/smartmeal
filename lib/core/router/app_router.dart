@@ -18,6 +18,7 @@ import 'package:smartmeal/features/cart/presentation/cart_screen.dart';
 import 'package:smartmeal/features/fridge_scanner/presentation/pantry_screen.dart';
 import 'package:smartmeal/features/fridge_scanner/presentation/fridge_scan_screen.dart';
 import 'package:smartmeal/features/community/presentation/community_screen.dart';
+import 'package:smartmeal/features/community/presentation/user_profile_screen.dart';
 import 'package:smartmeal/core/navigation/main_navigation.dart';
 import 'package:smartmeal/core/auth/providers/auth_provider.dart';
 import 'package:smartmeal/features/auth/screens/welcome_screen.dart';
@@ -269,6 +270,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             );
           },
         ),
+      ),
+      GoRoute(
+        path: '/profile/:userId',
+        name: 'user-profile',
+        pageBuilder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: UserProfileScreen(userId: userId),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutCubic;
+              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+              return SlideTransition(position: animation.drive(tween), child: child);
+            },
+          );
+        },
       ),
       GoRoute(
         path: '/recipe/:id',

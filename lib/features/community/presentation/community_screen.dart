@@ -7,6 +7,8 @@ import 'package:smartmeal/core/theme/app_theme.dart';
 import 'package:smartmeal/core/auth/providers/auth_provider.dart';
 import 'package:smartmeal/core/auth/providers/community_profile_provider.dart';
 import 'package:smartmeal/features/deals_scanner/providers/custom_recipes_provider.dart';
+import 'package:smartmeal/features/community/providers/follow_provider.dart';
+import 'package:smartmeal/features/community/providers/user_profile_provider.dart';
 
 final communitySearchProvider = StateProvider<String>((ref) => '');
 
@@ -53,6 +55,9 @@ class CommunityScreen extends ConsumerWidget {
               ),
             ),
           ),
+
+          // Following Story Circles
+          _FollowingStories(),
 
           // Content
           Expanded(
@@ -195,11 +200,9 @@ class _CommunityRecipeCard extends ConsumerWidget {
                   // Author + ingredients count
                   Row(
                     children: [
-                      Icon(Iconsax.user, size: 14, color: AppTheme.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        recipe.authorName ?? 'Anonym',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      GestureDetector(
+                        onTap: () => context.push('/profile/${recipe.userId}'),
+                        child: _AuthorChip(userId: recipe.userId, authorName: recipe.authorName),
                       ),
                       const Spacer(),
                       Text(
@@ -463,6 +466,136 @@ class _MetaChip extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w500)),
         ],
       ),
+    );
+  }
+}
+
+class _FollowingStories extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profilesAsync = ref.watch(followedUsersProfilesProvider);
+
+    return profilesAsync.when(
+      data: (profiles) {
+        if (profiles.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Text(
+                'Gefolgt',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: profiles.length,
+                itemBuilder: (context, index) {
+                  final profile = profiles[index];
+                  final name = profile.communityName ?? 'Anonym';
+                  return GestureDetector(
+                    onTap: () => context.push('/profile/${profile.id}'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 26,
+                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              backgroundImage: profile.avatarUrl != null
+                                  ? NetworkImage(profile.avatarUrl!)
+                                  : null,
+                              child: profile.avatarUrl == null
+                                  ? Text(
+                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            width: 64,
+                            child: Text(
+                              name,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Divider(color: Colors.grey[200]),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _AuthorChip extends ConsumerWidget {
+  final String userId;
+  final String? authorName;
+
+  const _AuthorChip({required this.userId, this.authorName});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(userProfileProvider(userId));
+    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 10,
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+          child: avatarUrl == null
+              ? Icon(Iconsax.user, size: 10, color: AppTheme.primaryColor)
+              : null,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          authorName ?? 'Anonym',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../cart/providers/meal_plan_provider.dart';
+import '../../community/providers/saved_recipes_provider.dart';
+import '../../community/providers/user_profile_provider.dart';
 
 class RecipeDetailScreen extends ConsumerStatefulWidget {
   final Recipe recipe;
@@ -366,7 +368,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
             },
           ),
         ),
-        if (widget.dealRecipe != null)
+        if (widget.dealRecipe != null && widget.dealRecipe!.totalSavings > 0)
           Container(
             margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -400,19 +402,29 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                 ),
               ],
             ),
-          )
-        else
-          Container(
-            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Iconsax.share, color: AppTheme.textPrimary),
-              onPressed: () {},
-            ),
           ),
+        Consumer(
+          builder: (context, ref, _) {
+            final savedIds = ref.watch(savedRecipeIdsProvider);
+            final isSaved = savedIds.contains(widget.recipe.id);
+            return Container(
+              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  isSaved ? Iconsax.archive_tick : Iconsax.archive_add,
+                  color: isSaved ? AppTheme.primaryColor : AppTheme.textPrimary,
+                ),
+                onPressed: () {
+                  ref.read(savedRecipeIdsProvider.notifier).toggleSave(widget.recipe.id);
+                },
+              ),
+            );
+          },
+        ),
       ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
@@ -495,6 +507,48 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
               color: AppTheme.textPrimary,
             ),
           ).animate().fadeIn().slideX(begin: -0.1, end: 0),
+
+          // Author info
+          if (widget.recipe.authorId != null && widget.recipe.authorName != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 4),
+              child: GestureDetector(
+                onTap: () => context.push('/profile/${widget.recipe.authorId}'),
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final profileAsync = ref.watch(userProfileProvider(widget.recipe.authorId!));
+                    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+                    return Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                          child: avatarUrl == null
+                              ? Text(
+                                  widget.recipe.authorName![0].toUpperCase(),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          widget.recipe.authorName!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Iconsax.arrow_right_3, size: 14, color: AppTheme.primaryColor),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+
           const SizedBox(height: 8),
           Text(
             widget.recipe.description,
@@ -873,6 +927,9 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
 
   Widget _buildPricingSummary() {
     if (widget.dealRecipe == null) return const SizedBox.shrink();
+    if (widget.dealRecipe!.totalCost <= 0 && widget.dealRecipe!.totalSavings <= 0) {
+      return const SizedBox.shrink();
+    }
 
     final dealRecipe = widget.dealRecipe!;
     final multiplier = _servings / widget.recipe.servings;

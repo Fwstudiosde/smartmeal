@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartmeal/core/config/supabase_config.dart';
 import 'package:smartmeal/core/auth/providers/auth_provider.dart';
+import 'package:smartmeal/features/community/providers/saved_recipes_provider.dart';
 
 class CustomRecipe {
   final String id;
@@ -288,4 +289,17 @@ final ownRecipesProvider = Provider<List<CustomRecipe>>((ref) {
 final communityRecipesProvider = Provider<List<CustomRecipe>>((ref) {
   final state = ref.watch(customRecipesProvider);
   return state.recipes.where((r) => r.isPublic).toList();
+});
+
+// Own recipes + saved recipes (for "Eigene" tab)
+final ownAndSavedRecipesProvider = Provider<List<CustomRecipe>>((ref) {
+  final ownRecipes = ref.watch(ownRecipesProvider);
+  final savedRecipes = ref.watch(savedRecipesListProvider);
+  final ownIds = ownRecipes.map((r) => r.id).toSet();
+
+  // Merge: own first, then saved that aren't already in own
+  return [
+    ...ownRecipes,
+    ...savedRecipes.where((r) => !ownIds.contains(r.id)),
+  ];
 });

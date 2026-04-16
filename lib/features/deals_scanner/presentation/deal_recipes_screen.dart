@@ -376,6 +376,8 @@ class DealRecipesScreen extends ConsumerWidget {
         )).toList(),
         instructions: c.instructions,
         tags: [tag, if (c.authorName != null) c.authorName!],
+        authorId: c.userId,
+        authorName: c.authorName,
       );
       return DealRecipe(
         recipe: recipe,
@@ -392,7 +394,7 @@ class DealRecipesScreen extends ConsumerWidget {
     List<DealRecipe> dealRecipes,
   ) {
     final selectedCategory = ref.watch(selectedCategoryFilterProvider);
-    final ownRecipes = ref.watch(ownRecipesProvider);
+    final ownRecipes = ref.watch(ownAndSavedRecipesProvider);
     final communityRecipes = ref.watch(communityRecipesProvider);
 
     final customMap = <String, CustomRecipe>{};
@@ -402,7 +404,7 @@ class DealRecipesScreen extends ConsumerWidget {
     List<DealRecipe> filteredRecipes;
 
     if (selectedCategory == 'custom') {
-      // "Eigene" - all own recipes (private + public)
+      // "Eigene" - own recipes + saved recipes
       filteredRecipes = _customToDeals(ownRecipes, 'custom', customMap);
     } else if (selectedCategory == 'community') {
       // "Community" - all public recipes (including own)
@@ -651,38 +653,39 @@ class DealRecipesScreen extends ConsumerWidget {
                       )
                     : _buildCardPlaceholder(dealRecipe.recipe.name),
               ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.successColor,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Iconsax.discount_shape,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '-${dealRecipe.totalSavings.toStringAsFixed(2)} €',
-                        style: const TextStyle(
+              if (dealRecipe.totalSavings > 0)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Iconsax.discount_shape,
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          size: 16,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          '-${dealRecipe.totalSavings.toStringAsFixed(2)} €',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           // Recipe Info
@@ -876,6 +879,7 @@ class DealRecipesScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+                if (dealRecipe.dealIngredients.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Divider(),
                 const SizedBox(height: 12),
@@ -889,6 +893,7 @@ class DealRecipesScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
+                ],
                 ...dealRecipe.dealIngredients.take(3).map((deal) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -960,7 +965,7 @@ class DealRecipesScreen extends ConsumerWidget {
                     ),
                   ),
                 const SizedBox(height: 16),
-                // Price Summary
+                // Price Summary or just button
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -970,27 +975,30 @@ class DealRecipesScreen extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Gesamtkosten',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
+                      if (dealRecipe.totalCost > 0)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Gesamtkosten',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${dealRecipe.totalCost.toStringAsFixed(2)} €',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
+                            const SizedBox(height: 4),
+                            Text(
+                              '${dealRecipe.totalCost.toStringAsFixed(2)} €',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      if (dealRecipe.totalCost <= 0)
+                        const SizedBox.shrink(),
                       ElevatedButton(
                         onPressed: () {
                           context.push('/recipe/${dealRecipe.recipe.id}',

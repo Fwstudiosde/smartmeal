@@ -84,7 +84,9 @@ class Recipe {
   final List<String> tags;
   final double? matchPercentage; // How well it matches available ingredients
   final NutritionInfo? nutrition;
-  
+  final String? authorId;
+  final String? authorName;
+
   const Recipe({
     required this.id,
     required this.name,
@@ -99,6 +101,8 @@ class Recipe {
     this.tags = const [],
     this.matchPercentage,
     this.nutrition,
+    this.authorId,
+    this.authorName,
   });
   
   int get totalTime => prepTime + cookTime;
