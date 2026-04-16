@@ -473,6 +473,7 @@ class _MetaChip extends StatelessWidget {
 class _FollowingStories extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final followState = ref.watch(followProvider);
     final profilesAsync = ref.watch(followedUsersProfilesProvider);
 
     return profilesAsync.when(

@@ -11,6 +11,7 @@ import '../../../core/auth/providers/auth_provider.dart';
 import '../../../core/auth/providers/community_profile_provider.dart';
 import '../../fridge_scanner/providers/fridge_providers.dart';
 import '../../community/providers/user_profile_provider.dart';
+import '../../community/providers/follow_provider.dart';
 
 // Selected Category Filter Provider
 final selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
@@ -442,6 +443,9 @@ class DealRecipesScreen extends ConsumerWidget {
     return Column(
       children: [
         _buildCategoryFilters(ref, allForChips),
+        // Show story circles when community tab is active
+        if (selectedCategory == 'community')
+          _FollowingStoriesRow(),
         Expanded(
           child: filteredRecipes.isEmpty
               ? _buildEmptyFilterState()
@@ -1057,6 +1061,98 @@ class DealRecipesScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FollowingStoriesRow extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profilesAsync = ref.watch(followedUsersProfilesProvider);
+
+    return profilesAsync.when(
+      data: (profiles) {
+        if (profiles.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text(
+                'Gefolgt',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: profiles.length,
+                itemBuilder: (context, index) {
+                  final profile = profiles[index];
+                  final name = profile.communityName ?? 'Anonym';
+                  return GestureDetector(
+                    onTap: () => context.push('/profile/${profile.id}'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 26,
+                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              backgroundImage: profile.avatarUrl != null
+                                  ? NetworkImage(profile.avatarUrl!)
+                                  : null,
+                              child: profile.avatarUrl == null
+                                  ? Text(
+                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            width: 64,
+                            child: Text(
+                              name,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Divider(color: Colors.grey[200], indent: 16, endIndent: 16),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
