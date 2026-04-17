@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/auth/providers/auth_provider.dart';
 import '../models/family.dart';
 
 class FamilyState {
@@ -37,12 +39,13 @@ class FamilyState {
 
 class FamilyNotifier extends StateNotifier<FamilyState> {
   final SupabaseClient _client;
+  final String? boundUid;
 
-  FamilyNotifier(this._client) : super(const FamilyState()) {
-    load();
+  FamilyNotifier(this._client, {this.boundUid}) : super(const FamilyState()) {
+    if (boundUid != null) load();
   }
 
-  String? get _uid => _client.auth.currentUser?.id;
+  String? get _uid => boundUid ?? _client.auth.currentUser?.id;
 
   /// Load the current user's family (if any) + members.
   Future<void> load() async {
@@ -113,8 +116,10 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
             emailsById[m['user_id'] as String] = m['email'] as String? ?? '';
           }
         }
-      } catch (_) {
-        // RPC not deployed yet or permission denied — members without email.
+      } catch (e) {
+        // Log for debug, but don't break the household screen.
+        // ignore: avoid_print
+        print('get_family_member_emails RPC error: $e');
       }
 
       final enriched = members
@@ -165,35 +170,17 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final code = rawCode.trim().toUpperCase();
-      final fam = await _client
-          .from('families')
-          .select('*')
-          .eq('invite_code', code)
-          .maybeSingle();
-      if (fam == null) {
-        state = state.copyWith(
-            isLoading: false, error: 'Kein Haushalt mit diesem Code');
-        return;
-      }
-
-      final existingMembers = await _client
-          .from('family_members')
-          .select('user_id')
-          .eq('family_id', fam['id']);
-      final count = (existingMembers as List).length;
-      final max = (fam['max_members'] as int?) ?? 6;
-      if (count >= max) {
-        state = state.copyWith(
-            isLoading: false, error: 'Haushalt ist voll ($count/$max)');
-        return;
-      }
-
-      await _client.from('family_members').insert({
-        'family_id': fam['id'],
-        'user_id': uid,
-        'role': 'member',
-      });
+      await _client.rpc('join_family_by_code', params: {'code': code});
       await load();
+    } on PostgrestException catch (e) {
+      final msg = switch (e.message) {
+        'invalid_code' => 'Kein Haushalt mit diesem Code',
+        'family_full' => 'Haushalt ist voll',
+        'already_in_family' =>
+          'Du bist bereits in einem anderen Haushalt',
+        _ => e.message,
+      };
+      state = state.copyWith(isLoading: false, error: msg);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -244,5 +231,15 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
 
 final familyProvider =
     StateNotifierProvider<FamilyNotifier, FamilyState>((ref) {
-  return FamilyNotifier(Supabase.instance.client);
+  // Rebuild notifier whenever the current user's id changes.
+  // This clears state on logout / account switch.
+  final uid = ref.watch(authProvider.select((s) => s.user?.id));
+  final notifier = FamilyNotifier(Supabase.instance.client, boundUid: uid);
+  ref.onDispose(() async {
+    // Clear the cross-user family cache when the binding changes.
+    try {
+      await Hive.box('family_cache').clear();
+    } catch (_) {}
+  });
+  return notifier;
 });
