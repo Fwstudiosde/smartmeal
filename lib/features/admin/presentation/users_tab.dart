@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartmeal/features/admin/providers/admin_providers.dart';
+import 'package:smartmeal/features/admin/presentation/user_detail_dialog.dart';
 
 class UsersTab extends ConsumerStatefulWidget {
   const UsersTab({super.key});
@@ -206,6 +207,13 @@ class _UsersTabState extends ConsumerState<UsersTab> {
                                 ),
                               ),
                             ],
+                          ),
+                          onTap: () => showDialog(
+                            context: context,
+                            builder: (_) => UserDetailDialog(
+                              userId: u['id'] as String,
+                              onDeleted: _load,
+                            ),
                           ),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete_outline,

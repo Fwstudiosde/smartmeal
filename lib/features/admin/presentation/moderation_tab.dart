@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartmeal/features/admin/providers/admin_providers.dart';
+import 'package:smartmeal/features/admin/presentation/recipe_detail_dialog.dart';
 
 class ModerationTab extends ConsumerStatefulWidget {
   const ModerationTab({super.key});
@@ -122,85 +123,9 @@ class _ModerationTabState extends ConsumerState<ModerationTab> {
   void _showPreview(Map recipe) {
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (recipe['image_url'] != null &&
-                  (recipe['image_url'] as String).isNotEmpty)
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                  child: Image.network(
-                    recipe['image_url'],
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 100,
-                      color: Colors.grey[200],
-                      child: const Icon(Icons.broken_image),
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      recipe['name'] ?? 'Unbekannt',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'von ${recipe['author_name'] ?? '?'}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    const SizedBox(height: 12),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Text(
-                          recipe['description'] ?? '(keine Beschreibung)',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Schließen'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _deleteRecipe(
-                        recipe['id'] as String,
-                        recipe['name'] as String,
-                      );
-                    },
-                    child: const Text(
-                      'Löschen',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      builder: (_) => RecipeDetailDialog(
+        recipeId: recipe['id'] as String,
+        onDeleted: _load,
       ),
     );
   }

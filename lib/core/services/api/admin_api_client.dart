@@ -253,8 +253,18 @@ class AdminApiClient {
     await _dio.delete('/api/admin/recipes/$recipeId');
   }
 
+  Future<Map<String, dynamic>> getRecipeDetail(String recipeId) async {
+    final res = await _dio.get('/api/admin/recipes/$recipeId');
+    return res.data as Map<String, dynamic>;
+  }
+
   Future<void> deleteUser(String userId) async {
     await _dio.delete('/api/admin/users/$userId');
+  }
+
+  Future<Map<String, dynamic>> getUserDetail(String userId) async {
+    final res = await _dio.get('/api/admin/users/$userId');
+    return res.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getHealth() async {

@@ -2,6 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartmeal/features/admin/providers/admin_providers.dart';
+import 'package:smartmeal/features/admin/presentation/recipe_detail_dialog.dart';
+import 'package:smartmeal/features/admin/presentation/user_detail_dialog.dart';
 
 class DashboardTab extends ConsumerStatefulWidget {
   const DashboardTab({super.key});
@@ -464,6 +466,13 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 subtitle: Text(r['author_name'] ?? ''),
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => RecipeDetailDialog(
+                    recipeId: r['id'] as String,
+                    onDeleted: _loadAll,
+                  ),
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -511,6 +520,13 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                 title: Text(
                   a['display_name'] ?? a['community_name'] ?? 'Unbekannt',
                   style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => UserDetailDialog(
+                    userId: a['id'] as String,
+                    onDeleted: _loadAll,
+                  ),
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -569,6 +585,13 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 subtitle: Text('${r['author_name'] ?? '?'} • $dateOnly'),
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => RecipeDetailDialog(
+                    recipeId: id,
+                    onDeleted: _loadAll,
+                  ),
+                ),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () => showDialog(

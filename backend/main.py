@@ -1666,6 +1666,126 @@ async def admin_delete_community_recipe(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/admin/recipes/{recipe_id}")
+async def admin_recipe_detail(
+    recipe_id: str,
+    admin: str = Depends(require_admin)
+):
+    """Full community recipe detail with likes count + author profile"""
+    from supabase_client import supabase_db
+    try:
+        res = supabase_db.client.table('custom_recipes').select('*').eq(
+            'id', recipe_id
+        ).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        recipe = res.data[0]
+
+        likes = _count('recipe_likes', recipe_id=recipe_id)
+        saves = _count('saved_recipes', recipe_id=recipe_id)
+
+        author = None
+        user_id = recipe.get('user_id')
+        if user_id:
+            try:
+                prof = supabase_db.client.table('user_profiles').select(
+                    'display_name, community_name'
+                ).eq('id', user_id).execute()
+                if prof.data:
+                    author = prof.data[0]
+                    author['id'] = user_id
+                try:
+                    user = supabase_db.client.auth.admin.get_user_by_id(user_id)
+                    if user and hasattr(user, 'user'):
+                        author = author or {}
+                        author['email'] = getattr(user.user, 'email', None)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        return {
+            "recipe": recipe,
+            "likes": likes,
+            "saves": saves,
+            "author": author,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/users/{user_id}")
+async def admin_user_detail(
+    user_id: str,
+    admin: str = Depends(require_admin)
+):
+    """Full user detail: auth info, profile, stats, recipes"""
+    from supabase_client import supabase_db
+
+    # Auth info
+    email = None
+    created_at = None
+    last_sign_in = None
+    try:
+        user = supabase_db.client.auth.admin.get_user_by_id(user_id)
+        u = getattr(user, 'user', None) or user
+        email = getattr(u, 'email', None)
+        created_at = str(getattr(u, 'created_at', ''))
+        last_sign_in = str(getattr(u, 'last_sign_in_at', '') or '')
+    except Exception as e:
+        print(f"auth lookup error: {e}")
+
+    # Profile
+    profile = None
+    try:
+        prof = supabase_db.client.table('user_profiles').select('*').eq(
+            'id', user_id
+        ).execute()
+        if prof.data:
+            profile = prof.data[0]
+    except Exception:
+        pass
+
+    # Stats
+    recipes_count = _count('custom_recipes', user_id=user_id)
+    followers = _count('follows', following_id=user_id)
+    following = _count('follows', follower_id=user_id)
+    likes_given = _count('recipe_likes', user_id=user_id)
+    saves_given = _count('saved_recipes', user_id=user_id)
+    pantry_items = _count('pantry_items', user_id=user_id)
+    meal_plans = _count('meal_plans', user_id=user_id)
+
+    # Recipes list
+    recipes = []
+    try:
+        r = supabase_db.client.table('custom_recipes').select(
+            'id, name, image_url, is_public, created_at'
+        ).eq('user_id', user_id).order('created_at', desc=True).limit(50).execute()
+        recipes = r.data
+    except Exception as e:
+        print(f"user recipes error: {e}")
+
+    return {
+        "id": user_id,
+        "email": email,
+        "created_at": created_at,
+        "last_sign_in": last_sign_in,
+        "profile": profile,
+        "stats": {
+            "recipes": recipes_count,
+            "followers": followers,
+            "following": following,
+            "likes_given": likes_given,
+            "saves_given": saves_given,
+            "pantry_items": pantry_items,
+            "meal_plans": meal_plans,
+        },
+        "recipes": recipes,
+    }
+
+
 @app.delete("/api/admin/users/{user_id}")
 async def admin_delete_user(
     user_id: str,
