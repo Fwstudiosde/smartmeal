@@ -59,6 +59,18 @@ class _CartScreenState extends ConsumerState<CartScreen> with SingleTickerProvid
                         ),
                       ),
                       const Spacer(),
+                      IconButton(
+                        onPressed: () => context.push('/household/meal-plan'),
+                        icon: const Icon(Iconsax.people,
+                            color: AppColors.primary),
+                        tooltip: 'Haushalt-Wochenplan',
+                      ),
+                      IconButton(
+                        onPressed: () => context.push('/household/shopping'),
+                        icon: const Icon(Iconsax.shopping_bag,
+                            color: AppColors.primary),
+                        tooltip: 'Haushalt-Einkaufsliste',
+                      ),
                       if (!isEmpty) ...[
                         IconButton(
                           onPressed: () {

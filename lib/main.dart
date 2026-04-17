@@ -60,6 +60,8 @@ void main() async {
   await Hive.openBox('recipes');
   await Hive.openBox('deals');
   await Hive.openBox('settings');
+  await Hive.openBox('sync_outbox');
+  await Hive.openBox('family_cache');
 
   // Initialize notifications (not available on web)
   if (!kIsWeb) {

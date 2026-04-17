@@ -64,6 +64,9 @@ dependencies:
   # Charts (admin dashboard)
   fl_chart: ^0.68.0
 
+  # Connectivity detection (offline sync)
+  connectivity_plus: ^6.0.3
+
   # Supabase
   supabase_flutter: ^2.5.0
 

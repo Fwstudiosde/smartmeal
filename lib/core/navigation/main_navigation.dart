@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:smartmeal/core/theme/app_theme.dart';
+import 'package:smartmeal/core/services/sync/connectivity_provider.dart';
+import 'package:smartmeal/core/services/sync/sync_engine.dart';
 
-class MainNavigation extends StatefulWidget {
+class MainNavigation extends ConsumerStatefulWidget {
   final Widget child;
-  
+
   const MainNavigation({super.key, required this.child});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  ConsumerState<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
+class _MainNavigationState extends ConsumerState<MainNavigation> {
   int _currentIndex = 0;
   
   final List<_NavItem> _navItems = [
@@ -24,8 +27,18 @@ class _MainNavigationState extends State<MainNavigation> {
   
   @override
   Widget build(BuildContext context) {
+    final online = ref.watch(connectivityProvider);
+    final pending =
+        ref.watch(pendingOpsCountProvider).maybeWhen(data: (v) => v, orElse: () => 0);
+
     return Scaffold(
-      body: widget.child,
+      body: Column(
+        children: [
+          if (!online || pending > 0)
+            _SyncBanner(online: online, pending: pending),
+          Expanded(child: widget.child),
+        ],
+      ),
       floatingActionButton: Container(
         width: 56,
         height: 56,
@@ -135,6 +148,43 @@ class _MainNavigationState extends State<MainNavigation> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SyncBanner extends StatelessWidget {
+  final bool online;
+  final int pending;
+  const _SyncBanner({required this.online, required this.pending});
+
+  @override
+  Widget build(BuildContext context) {
+    final isOffline = !online;
+    return Container(
+      width: double.infinity,
+      color: isOffline ? Colors.red[50] : Colors.amber[50],
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        children: [
+          Icon(
+            isOffline ? Icons.cloud_off : Icons.sync,
+            size: 14,
+            color: isOffline ? Colors.red[700] : Colors.amber[800],
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              isOffline
+                  ? 'Offline — Änderungen werden synchronisiert, sobald du wieder online bist.'
+                  : '$pending ausstehende Änderungen werden synchronisiert…',
+              style: TextStyle(
+                fontSize: 11,
+                color: isOffline ? Colors.red[700] : Colors.amber[900],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

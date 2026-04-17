@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,6 +12,7 @@ import '../../../core/auth/providers/auth_provider.dart';
 import '../../../core/auth/providers/community_profile_provider.dart';
 import '../../../core/services/avatar_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../features/family/providers/family_provider.dart';
 import '../../../features/fridge_scanner/providers/pantry_provider.dart';
 import '../../../main.dart' show localeProvider;
 
@@ -80,6 +82,9 @@ class SettingsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildProfileSection(context, ref),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Haushalt'),
+            _buildHouseholdSection(context),
             const SizedBox(height: 24),
             _buildSectionTitle('Allgemein'),
             _buildGeneralSettings(context, ref),
@@ -546,6 +551,40 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  Widget _buildHouseholdSection(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Consumer(
+        builder: (context, ref, _) {
+          final state = ref.watch(familyProvider);
+          final subtitle = state.hasFamily
+              ? '${state.family!.name} • ${state.members.length} Mitglied${state.members.length == 1 ? '' : 'er'}'
+              : 'Wochenplan + Einkaufsliste teilen';
+          return _buildSettingTile(
+            icon: Iconsax.home_2,
+            title: 'Haushalt',
+            subtitle: subtitle,
+            trailing: const Icon(
+              Iconsax.arrow_right_3,
+              color: AppTheme.textSecondary,
+            ),
+            onTap: () => context.push('/household'),
+          );
+        },
+      ),
+    ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.1, end: 0);
   }
 
   Widget _buildAboutSection(BuildContext context) {
