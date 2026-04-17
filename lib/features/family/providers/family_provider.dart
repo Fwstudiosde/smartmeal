@@ -75,14 +75,34 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
 
       final membersRes = await _client
           .from('family_members')
-          .select('family_id, user_id, role, joined_at, user_profiles(display_name, community_name)')
+          .select('family_id, user_id, role, joined_at')
           .eq('family_id', familyId);
+
+      final userIds = (membersRes as List)
+          .map((e) => e['user_id'] as String)
+          .toList();
+
+      final Map<String, Map<String, dynamic>> profilesById = {};
+      if (userIds.isNotEmpty) {
+        final profilesRes = await _client
+            .from('user_profiles')
+            .select('id, display_name, community_name')
+            .inFilter('id', userIds);
+        for (final p in profilesRes as List) {
+          profilesById[p['id'] as String] = Map<String, dynamic>.from(p);
+        }
+      }
+
+      final members = membersRes.map((e) {
+        final m = Map<String, dynamic>.from(e);
+        final prof = profilesById[m['user_id']];
+        if (prof != null) m['user_profiles'] = prof;
+        return FamilyMember.fromJson(m);
+      }).toList();
 
       state = FamilyState(
         family: Household.fromJson(familyRes),
-        members: (membersRes as List)
-            .map((e) => FamilyMember.fromJson(Map<String, dynamic>.from(e)))
-            .toList(),
+        members: members,
         isLoading: false,
       );
     } catch (e) {
