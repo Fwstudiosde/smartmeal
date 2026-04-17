@@ -61,6 +61,9 @@ dependencies:
   # Google Fonts
   google_fonts: ^6.1.0
 
+  # Charts (admin dashboard)
+  fl_chart: ^0.68.0
+
   # Supabase
   supabase_flutter: ^2.5.0
 

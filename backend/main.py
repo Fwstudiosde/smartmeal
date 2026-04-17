@@ -1281,6 +1281,414 @@ async def import_chefkoch_recipe(request: RecipeImportRequest):
         )
 
 
+# ====================================================================
+# ADMIN DASHBOARD ENDPOINTS
+# ====================================================================
+
+def _iso_now():
+    return datetime.utcnow().isoformat()
+
+
+def _count(table: str, **filters) -> int:
+    try:
+        from supabase_client import supabase_db
+        q = supabase_db.client.table(table).select('*', count='exact', head=True)
+        for key, val in filters.items():
+            if isinstance(val, tuple):
+                op, v = val
+                if op == 'gte':
+                    q = q.gte(key, v)
+                elif op == 'lte':
+                    q = q.lte(key, v)
+            else:
+                q = q.eq(key, val)
+        result = q.execute()
+        return result.count or 0
+    except Exception as e:
+        print(f"_count error on {table}: {e}")
+        return 0
+
+
+@app.get("/api/admin/stats/overview")
+async def admin_stats_overview(admin: str = Depends(require_admin)):
+    """KPI cards: users, recipes, deals, engagement"""
+    from supabase_client import supabase_db
+
+    now = datetime.utcnow()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    week_ago = (now - timedelta(days=7)).isoformat()
+
+    # Users — auth.users via admin API
+    total_users = 0
+    new_users_today = 0
+    new_users_week = 0
+    try:
+        users_page = supabase_db.client.auth.admin.list_users()
+        total_users = len(users_page)
+        for u in users_page:
+            created = getattr(u, 'created_at', None)
+            if created:
+                created_str = str(created)
+                if created_str >= today:
+                    new_users_today += 1
+                if created_str >= week_ago:
+                    new_users_week += 1
+    except Exception as e:
+        print(f"auth.users error: {e}")
+        total_users = _count('user_profiles')
+        new_users_today = _count('user_profiles', created_at=('gte', today))
+        new_users_week = _count('user_profiles', created_at=('gte', week_ago))
+
+    # Recipes (community)
+    total_community = _count('custom_recipes')
+    new_recipes_today = _count('custom_recipes', created_at=('gte', today))
+    new_recipes_week = _count('custom_recipes', created_at=('gte', week_ago))
+
+    # Deals
+    total_deals = _count('deals')
+    today_date = now.date().isoformat()
+    active_deals = _count('deals', valid_until=('gte', today_date))
+
+    # Deals per store
+    deals_by_store = {}
+    try:
+        deals_result = supabase_db.client.table('deals').select(
+            'store_name'
+        ).gte('valid_until', today_date).execute()
+        for row in deals_result.data:
+            store = row.get('store_name', 'Unbekannt')
+            deals_by_store[store] = deals_by_store.get(store, 0) + 1
+    except Exception as e:
+        print(f"deals_by_store error: {e}")
+
+    # Engagement (last 7 days)
+    likes_week = _count('recipe_likes', created_at=('gte', week_ago))
+    follows_week = _count('follows', created_at=('gte', week_ago))
+    bookmarks_week = _count('saved_recipes', created_at=('gte', week_ago))
+
+    return {
+        "users": {
+            "total": total_users,
+            "new_today": new_users_today,
+            "new_week": new_users_week,
+        },
+        "recipes": {
+            "total_community": total_community,
+            "new_today": new_recipes_today,
+            "new_week": new_recipes_week,
+        },
+        "deals": {
+            "total": total_deals,
+            "active": active_deals,
+            "by_store": deals_by_store,
+        },
+        "engagement": {
+            "likes_week": likes_week,
+            "follows_week": follows_week,
+            "bookmarks_week": bookmarks_week,
+        },
+        "generated_at": _iso_now(),
+    }
+
+
+@app.get("/api/admin/stats/timeseries")
+async def admin_stats_timeseries(
+    days: int = 30,
+    admin: str = Depends(require_admin)
+):
+    """Daily counts for signups + recipes over the last N days"""
+    from supabase_client import supabase_db
+
+    now = datetime.utcnow()
+    start = (now - timedelta(days=days)).isoformat()
+
+    # Prepare date buckets
+    signups_by_day = {}
+    recipes_by_day = {}
+    for i in range(days):
+        day = (now - timedelta(days=days - 1 - i)).date().isoformat()
+        signups_by_day[day] = 0
+        recipes_by_day[day] = 0
+
+    # Signups (from auth.users if possible, else user_profiles)
+    try:
+        users_page = supabase_db.client.auth.admin.list_users()
+        for u in users_page:
+            created = str(getattr(u, 'created_at', ''))[:10]
+            if created in signups_by_day:
+                signups_by_day[created] += 1
+    except Exception:
+        try:
+            res = supabase_db.client.table('user_profiles').select(
+                'created_at'
+            ).gte('created_at', start).execute()
+            for row in res.data:
+                day = str(row.get('created_at', ''))[:10]
+                if day in signups_by_day:
+                    signups_by_day[day] += 1
+        except Exception as e:
+            print(f"user_profiles timeseries error: {e}")
+
+    # Community recipes
+    try:
+        res = supabase_db.client.table('custom_recipes').select(
+            'created_at'
+        ).gte('created_at', start).execute()
+        for row in res.data:
+            day = str(row.get('created_at', ''))[:10]
+            if day in recipes_by_day:
+                recipes_by_day[day] += 1
+    except Exception as e:
+        print(f"custom_recipes timeseries error: {e}")
+
+    return {
+        "signups": [{"date": d, "count": c} for d, c in signups_by_day.items()],
+        "recipes": [{"date": d, "count": c} for d, c in recipes_by_day.items()],
+    }
+
+
+@app.get("/api/admin/stats/top")
+async def admin_stats_top(admin: str = Depends(require_admin)):
+    """Top recipes by likes + top authors by followers (last 7d)"""
+    from supabase_client import supabase_db
+
+    week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
+
+    # Top recipes: count likes per recipe_id (last 7d), then fetch recipe details
+    top_recipes = []
+    try:
+        likes_res = supabase_db.client.table('recipe_likes').select(
+            'recipe_id'
+        ).gte('created_at', week_ago).execute()
+
+        counts = {}
+        for row in likes_res.data:
+            rid = row.get('recipe_id')
+            if rid:
+                counts[rid] = counts.get(rid, 0) + 1
+
+        top_ids = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        for rid, cnt in top_ids:
+            try:
+                res = supabase_db.client.table('custom_recipes').select(
+                    'id, name, author_name, image_url, user_id'
+                ).eq('id', rid).execute()
+                if res.data:
+                    r = res.data[0]
+                    r['likes_week'] = cnt
+                    top_recipes.append(r)
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"top_recipes error: {e}")
+
+    # Top authors: count followers per following_id
+    top_authors = []
+    try:
+        follows_res = supabase_db.client.table('follows').select(
+            'following_id'
+        ).execute()
+        counts = {}
+        for row in follows_res.data:
+            uid = row.get('following_id')
+            if uid:
+                counts[uid] = counts.get(uid, 0) + 1
+        top_ids = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        for uid, cnt in top_ids:
+            try:
+                prof = supabase_db.client.table('user_profiles').select(
+                    'id, display_name, community_name'
+                ).eq('id', uid).execute()
+                if prof.data:
+                    p = prof.data[0]
+                    p['followers'] = cnt
+                    top_authors.append(p)
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"top_authors error: {e}")
+
+    return {
+        "top_recipes": top_recipes,
+        "top_authors": top_authors,
+    }
+
+
+@app.get("/api/admin/moderation/queue")
+async def admin_moderation_queue(
+    limit: int = 20,
+    admin: str = Depends(require_admin)
+):
+    """Newest community recipes for moderation"""
+    from supabase_client import supabase_db
+    try:
+        res = supabase_db.client.table('custom_recipes').select(
+            'id, name, description, author_name, user_id, image_url, is_public, created_at'
+        ).order('created_at', desc=True).limit(limit).execute()
+        return {"recipes": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/users")
+async def admin_users_list(
+    page: int = 1,
+    limit: int = 20,
+    search: Optional[str] = None,
+    admin: str = Depends(require_admin)
+):
+    """Paginated user list with recipe + follower counts"""
+    from supabase_client import supabase_db
+
+    try:
+        users = supabase_db.client.auth.admin.list_users()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not list users: {e}")
+
+    # Filter by search
+    if search:
+        s = search.lower()
+        users = [
+            u for u in users
+            if s in str(getattr(u, 'email', '') or '').lower()
+        ]
+
+    total = len(users)
+    start = (page - 1) * limit
+    page_users = users[start:start + limit]
+
+    # Enrich with recipe + follower counts
+    enriched = []
+    for u in page_users:
+        uid = str(u.id)
+        email = getattr(u, 'email', None)
+        created = str(getattr(u, 'created_at', ''))
+
+        # Profile
+        profile = None
+        try:
+            prof = supabase_db.client.table('user_profiles').select(
+                'display_name, community_name'
+            ).eq('id', uid).execute()
+            if prof.data:
+                profile = prof.data[0]
+        except Exception:
+            pass
+
+        recipes = _count('custom_recipes', user_id=uid)
+        followers = _count('follows', following_id=uid)
+        following = _count('follows', follower_id=uid)
+
+        enriched.append({
+            "id": uid,
+            "email": email,
+            "created_at": created,
+            "display_name": (profile or {}).get('display_name') if profile else None,
+            "community_name": (profile or {}).get('community_name') if profile else None,
+            "recipes": recipes,
+            "followers": followers,
+            "following": following,
+        })
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "users": enriched,
+    }
+
+
+@app.get("/api/admin/recipes/community")
+async def admin_community_recipes(
+    page: int = 1,
+    limit: int = 20,
+    search: Optional[str] = None,
+    sort: str = "newest",
+    admin: str = Depends(require_admin)
+):
+    """Paginated community recipes for moderation"""
+    from supabase_client import supabase_db
+
+    try:
+        q = supabase_db.client.table('custom_recipes').select(
+            'id, name, description, author_name, user_id, image_url, is_public, created_at',
+            count='exact'
+        )
+        if search:
+            q = q.ilike('name', f'%{search}%')
+        if sort == "newest":
+            q = q.order('created_at', desc=True)
+        else:
+            q = q.order('name')
+
+        start = (page - 1) * limit
+        q = q.range(start, start + limit - 1)
+        res = q.execute()
+
+        return {
+            "total": res.count or 0,
+            "page": page,
+            "limit": limit,
+            "recipes": res.data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/recipes/{recipe_id}")
+async def admin_delete_community_recipe(
+    recipe_id: str,
+    admin: str = Depends(require_admin)
+):
+    """Delete a community recipe"""
+    from supabase_client import supabase_db
+    try:
+        supabase_db.client.table('custom_recipes').delete().eq('id', recipe_id).execute()
+        return {"status": "success", "message": "Recipe deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: str,
+    admin: str = Depends(require_admin)
+):
+    """Delete a user via auth.admin (cascades to profile/recipes/likes)"""
+    from supabase_client import supabase_db
+    try:
+        supabase_db.client.auth.admin.delete_user(user_id)
+        return {"status": "success", "message": "User deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/health")
+async def admin_health(admin: str = Depends(require_admin)):
+    """Backend + Supabase health check with latency"""
+    from supabase_client import supabase_db
+    import time
+
+    supabase_ok = False
+    supabase_latency_ms = None
+    try:
+        t0 = time.time()
+        supabase_db.client.table('user_profiles').select(
+            'id', count='exact', head=True
+        ).limit(1).execute()
+        supabase_latency_ms = int((time.time() - t0) * 1000)
+        supabase_ok = True
+    except Exception as e:
+        print(f"health check error: {e}")
+
+    return {
+        "backend": "ok",
+        "supabase": "ok" if supabase_ok else "error",
+        "supabase_latency_ms": supabase_latency_ms,
+        "timestamp": _iso_now(),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

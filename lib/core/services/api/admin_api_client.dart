@@ -187,6 +187,81 @@ class AdminApiClient {
     }
   }
 
+  // ====== ADMIN DASHBOARD ======
+
+  Future<Map<String, dynamic>> getStatsOverview() async {
+    final res = await _dio.get('/api/admin/stats/overview');
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getStatsTimeseries({int days = 30}) async {
+    final res = await _dio.get(
+      '/api/admin/stats/timeseries',
+      queryParameters: {'days': days},
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getStatsTop() async {
+    final res = await _dio.get('/api/admin/stats/top');
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getModerationQueue({int limit = 20}) async {
+    final res = await _dio.get(
+      '/api/admin/moderation/queue',
+      queryParameters: {'limit': limit},
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getUsers({
+    int page = 1,
+    int limit = 20,
+    String? search,
+  }) async {
+    final res = await _dio.get(
+      '/api/admin/users',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (search != null && search.isNotEmpty) 'search': search,
+      },
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getCommunityRecipes({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String sort = 'newest',
+  }) async {
+    final res = await _dio.get(
+      '/api/admin/recipes/community',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        'sort': sort,
+        if (search != null && search.isNotEmpty) 'search': search,
+      },
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<void> deleteCommunityRecipe(String recipeId) async {
+    await _dio.delete('/api/admin/recipes/$recipeId');
+  }
+
+  Future<void> deleteUser(String userId) async {
+    await _dio.delete('/api/admin/users/$userId');
+  }
+
+  Future<Map<String, dynamic>> getHealth() async {
+    final res = await _dio.get('/api/admin/health');
+    return res.data as Map<String, dynamic>;
+  }
+
   void dispose() {
     _dio.close();
   }
