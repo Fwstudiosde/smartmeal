@@ -91,7 +91,7 @@ user_service = UserServiceSupabase()
 
 
 def load_deals() -> List[Dict]:
-    """Load deals from cache file"""
+    """Load deals from cache file (includes expired — admin use only)"""
     if DEALS_FILE.exists():
         try:
             with open(DEALS_FILE, 'r', encoding='utf-8') as f:
@@ -99,6 +99,23 @@ def load_deals() -> List[Dict]:
         except Exception as e:
             print(f"Error loading deals: {e}")
     return []
+
+
+def is_deal_active(deal: Dict, today: Optional[str] = None) -> bool:
+    """A deal is active if its valid_until is today or later.
+    Deals without valid_until are treated as active (legacy data)."""
+    valid_until = deal.get('valid_until')
+    if not valid_until:
+        return True
+    today = today or datetime.utcnow().date().isoformat()
+    return str(valid_until)[:10] >= today
+
+
+def load_active_deals() -> List[Dict]:
+    """Load only deals whose valid_until is today or later.
+    This is what all user-facing endpoints and recipe matching should use."""
+    today = datetime.utcnow().date().isoformat()
+    return [d for d in load_deals() if is_deal_active(d, today)]
 
 
 def remove_duplicate_deals(deals: List[Dict]) -> List[Dict]:
@@ -256,14 +273,14 @@ async def get_all_deals(
     limit: Optional[int] = None
 ):
     """
-    Get all deals, optionally filtered by store and/or category
+    Get active deals, optionally filtered by store and/or category
 
     - **store**: Filter by store name (e.g., 'Lidl', 'ALDI')
     - **category**: Filter by category (e.g., 'Fleisch', 'Gemüse')
     - **limit**: Limit number of results
     """
-    # Always reload deals from file to get latest updates
-    deals = load_deals()
+    # Only active deals (valid_until >= today)
+    deals = load_active_deals()
 
     # Apply filters
     if store:
@@ -281,8 +298,8 @@ async def get_all_deals(
 
 @app.get("/api/deals/{store_name}", response_model=List[Dict])
 async def get_deals_by_store(store_name: str):
-    """Get deals for a specific store"""
-    deals = load_deals()
+    """Get active deals for a specific store"""
+    deals = load_active_deals()
     store_deals = [
         d for d in deals
         if d['store_name'].lower() == store_name.lower()
@@ -296,8 +313,8 @@ async def get_deals_by_store(store_name: str):
 
 @app.get("/api/stores")
 async def get_stores():
-    """Get list of available stores with deal counts"""
-    deals = load_deals()
+    """Get list of available stores with active deal counts"""
+    deals = load_active_deals()
 
     stores = {}
     for deal in deals:
@@ -314,8 +331,8 @@ async def get_stores():
 
 @app.get("/api/categories")
 async def get_categories():
-    """Get list of product categories with deal counts"""
-    deals = load_deals()
+    """Get list of product categories with active deal counts"""
+    deals = load_active_deals()
 
     categories = {}
     for deal in deals:
@@ -352,8 +369,8 @@ async def get_scrape_status():
 
 @app.get("/api/stats")
 async def get_stats():
-    """Get statistics about available deals"""
-    deals = load_deals()
+    """Get statistics about available (active) deals"""
+    deals = load_active_deals()
 
     stats = {
         "total_deals": len(deals),
@@ -438,8 +455,8 @@ async def get_recipes_with_deals(
     Returns recipes sorted by match score (best matches first)
     """
     try:
-        # Load current deals
-        deals = load_deals()
+        # Only active deals (expired weeks excluded)
+        deals = load_active_deals()
 
         if not deals:
             return {
@@ -791,10 +808,10 @@ async def get_custom_recipes_with_deals(
     min_coverage: Optional[float] = 50.0,
     match_threshold: Optional[int] = 70
 ):
-    """Get custom recipes matched with current deals"""
+    """Get custom recipes matched with current active deals"""
     try:
-        # Load current deals
-        deals = load_deals()
+        # Only active deals (expired weeks excluded)
+        deals = load_active_deals()
 
         if not deals:
             return {
