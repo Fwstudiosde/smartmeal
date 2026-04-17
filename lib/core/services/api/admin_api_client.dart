@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:smartmeal/core/config/supabase_config.dart';
 
@@ -19,14 +19,13 @@ class AdminApiClient {
     _dio.options = BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(minutes: 20), // Long timeout for AI processing of large PDFs
+      receiveTimeout: const Duration(minutes: 20),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
     );
 
-    // Add auth interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -39,7 +38,6 @@ class AdminApiClient {
     );
   }
 
-  /// Login as admin
   Future<bool> login(String username, String password) async {
     try {
       final response = await _dio.post(
@@ -61,35 +59,29 @@ class AdminApiClient {
     }
   }
 
-  /// Logout
   void logout() {
     _accessToken = null;
   }
 
-  /// Check if logged in
   bool get isLoggedIn => _accessToken != null;
 
-  /// Set access token (from secure storage)
   void setAccessToken(String token) {
     _accessToken = token;
   }
 
-  /// Get access token
   String? get accessToken => _accessToken;
 
-  /// Upload prospekt (PDF or image)
   Future<Map<String, dynamic>> uploadProspekt({
-    required File file,
+    required Uint8List bytes,
+    required String filename,
     required String storeName,
     Function(double)? onProgress,
   }) async {
     try {
-      final fileName = file.path.split('/').last;
-
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
-          file.path,
-          filename: fileName,
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: filename,
         ),
         'store_name': storeName,
       });
@@ -114,7 +106,6 @@ class AdminApiClient {
     }
   }
 
-  /// Get all deals (admin view)
   Future<Map<String, dynamic>> getAllDeals() async {
     try {
       final response = await _dio.get('/api/admin/deals');
@@ -129,7 +120,6 @@ class AdminApiClient {
     }
   }
 
-  /// Update a deal
   Future<Map<String, dynamic>> updateDeal(
     int dealIndex,
     Map<String, dynamic> dealData,
@@ -150,7 +140,6 @@ class AdminApiClient {
     }
   }
 
-  /// Delete a deal
   Future<Map<String, dynamic>> deleteDeal(int dealIndex) async {
     try {
       final response = await _dio.delete('/api/admin/deals/$dealIndex');
@@ -165,7 +154,6 @@ class AdminApiClient {
     }
   }
 
-  /// Create a new deal manually
   Future<Map<String, dynamic>> createDeal(
     Map<String, dynamic> dealData,
   ) async {
@@ -185,7 +173,6 @@ class AdminApiClient {
     }
   }
 
-  /// Clear all deals
   Future<Map<String, dynamic>> clearAllDeals() async {
     try {
       final response = await _dio.delete('/api/admin/deals');

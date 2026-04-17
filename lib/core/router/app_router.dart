@@ -11,9 +11,6 @@ import 'package:smartmeal/features/deals_scanner/presentation/deal_recipes_scree
 import 'package:smartmeal/features/deals_scanner/presentation/create_custom_recipe_screen.dart';
 import 'package:smartmeal/features/recipe_detail/presentation/recipe_detail_screen.dart';
 import 'package:smartmeal/features/settings/presentation/settings_screen.dart';
-import 'package:smartmeal/features/admin/presentation/admin_login_screen.dart';
-import 'package:smartmeal/features/admin/presentation/admin_verification_screen.dart';
-import 'package:smartmeal/features/admin/presentation/admin_home_screen.dart';
 import 'package:smartmeal/features/cart/presentation/cart_screen.dart';
 import 'package:smartmeal/features/fridge_scanner/presentation/pantry_screen.dart';
 import 'package:smartmeal/features/fridge_scanner/presentation/fridge_scan_screen.dart';
@@ -38,17 +35,6 @@ final authStateNotifierProvider = Provider<AuthStateNotifier>((ref) {
   return AuthStateNotifier(ref);
 });
 
-// Admin email whitelist - add admin emails here
-const _adminEmails = <String>{
-  'finn-weinnoldt@outlook.de',
-  'accounts@fwstudios.de',
-};
-
-bool _isAdminEmail(String? email) {
-  if (email == null) return false;
-  return _adminEmails.contains(email.toLowerCase());
-}
-
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authStateNotifier = ref.watch(authStateNotifierProvider);
 
@@ -57,32 +43,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: authStateNotifier,
     redirect: (context, state) {
       final isAuth = ref.read(isAuthenticatedProvider);
-      final authState = ref.read(authProvider);
-      final userEmail = authState.user?.email;
       final isGoingToWelcome = state.matchedLocation == '/welcome';
-      final isGoingToAdmin = state.matchedLocation.startsWith('/admin');
 
-      // If not authenticated and not going to welcome or admin, redirect to welcome
-      if (!isAuth && !isGoingToWelcome && !isGoingToAdmin) {
+      if (!isAuth && !isGoingToWelcome) {
         return '/welcome';
       }
 
-      // If authenticated and going to welcome, redirect based on user
       if (isAuth && isGoingToWelcome) {
-        // Check if user is admin account - redirect to admin verification
-        if (_isAdminEmail(userEmail)) {
-          return '/admin/verify';
-        }
-        // Regular user - redirect to home
         return '/';
       }
 
-      // If authenticated as admin user and going to home, redirect to admin verify
-      if (isAuth && _isAdminEmail(userEmail) && state.matchedLocation == '/') {
-        return '/admin/verify';
-      }
-
-      // No redirect needed
       return null;
     },
     routes: [
@@ -309,39 +279,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           );
         },
-      ),
-      GoRoute(
-        path: '/admin',
-        name: 'admin',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const AdminLoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-      ),
-      GoRoute(
-        path: '/admin/verify',
-        name: 'admin-verify',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const AdminVerificationScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-      ),
-      GoRoute(
-        path: '/admin/home',
-        name: 'admin-home',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const AdminHomeScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
       ),
     ],
   );

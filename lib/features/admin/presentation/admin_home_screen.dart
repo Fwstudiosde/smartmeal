@@ -1,7 +1,8 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/features/admin/providers/admin_providers.dart';
 
@@ -37,7 +38,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
             onPressed: () async {
               await ref.read(adminAuthProvider.notifier).logout();
               if (context.mounted) {
-                Navigator.of(context).pop();
+                context.go('/');
               }
             },
           ),
@@ -81,7 +82,8 @@ class UploadTab extends ConsumerStatefulWidget {
 }
 
 class _UploadTabState extends ConsumerState<UploadTab> {
-  File? _selectedFile;
+  Uint8List? _selectedBytes;
+  String? _selectedFilename;
   Supermarket? _selectedStore;
   bool _isUploading = false;
   double _uploadProgress = 0;
@@ -91,18 +93,20 @@ class _UploadTabState extends ConsumerState<UploadTab> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      withData: true,
     );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null && result.files.single.bytes != null) {
       setState(() {
-        _selectedFile = File(result.files.single.path!);
+        _selectedBytes = result.files.single.bytes;
+        _selectedFilename = result.files.single.name;
         _resultMessage = null;
       });
     }
   }
 
   Future<void> _uploadFile() async {
-    if (_selectedFile == null || _selectedStore == null) {
+    if (_selectedBytes == null || _selectedStore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Bitte Datei und Supermarkt auswählen'),
@@ -121,7 +125,8 @@ class _UploadTabState extends ConsumerState<UploadTab> {
     try {
       final apiClient = ref.read(adminApiClientProvider);
       final result = await apiClient.uploadProspekt(
-        file: _selectedFile!,
+        bytes: _selectedBytes!,
+        filename: _selectedFilename!,
         storeName: _selectedStore!.name,
         onProgress: (progress) {
           setState(() {
@@ -139,7 +144,8 @@ class _UploadTabState extends ConsumerState<UploadTab> {
           _resultMessage =
               '✅ ${result['deals_count'] ?? 0} Angebote erfolgreich extrahiert!';
         }
-        _selectedFile = null;
+        _selectedBytes = null;
+        _selectedFilename = null;
       });
 
       if (context.mounted) {
@@ -243,16 +249,14 @@ class _UploadTabState extends ConsumerState<UploadTab> {
                     onPressed: _isUploading ? null : _pickFile,
                     icon: const Icon(Icons.attach_file),
                     label: Text(
-                      _selectedFile == null
-                          ? 'PDF oder Bild auswählen'
-                          : _selectedFile!.path.split('/').last,
+                      _selectedFilename ?? 'PDF oder Bild auswählen',
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.all(16),
                       alignment: Alignment.centerLeft,
                     ),
                   ),
-                  if (_selectedFile != null) ...[
+                  if (_selectedFilename != null) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -260,7 +264,7 @@ class _UploadTabState extends ConsumerState<UploadTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _selectedFile!.path.split('/').last,
+                            _selectedFilename!,
                             style: const TextStyle(fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                           ),

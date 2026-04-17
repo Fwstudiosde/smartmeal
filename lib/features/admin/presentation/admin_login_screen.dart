@@ -43,8 +43,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     });
 
     if (success && mounted) {
-      // Login successful - navigate to admin home
-      context.go('/admin/home');
+      context.go('/home');
     } else {
       // Show error
       if (mounted) {
@@ -178,16 +177,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             ),
                           ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Back button
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('Zurück'),
-                  ),
-
                   const SizedBox(height: 24),
 
                   // Help text

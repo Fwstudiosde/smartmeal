@@ -20,7 +20,7 @@ class SupabaseConfig {
 class BackendConfig {
   // Backend API URL - change this for production deployment
   static const String _devUrl = 'http://localhost:8000';
-  static const String _prodUrl = 'https://smartmeal-backend-production.up.railway.app';
+  static const String _prodUrl = 'https://smartmeal-production.up.railway.app';
 
   // Set to true when deploying to production / App Store
   static const bool isProduction = true;
