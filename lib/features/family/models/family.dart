@@ -41,6 +41,7 @@ class FamilyMember {
   final DateTime joinedAt;
   final String? displayName;
   final String? communityName;
+  final String? email;
 
   FamilyMember({
     required this.familyId,
@@ -49,6 +50,7 @@ class FamilyMember {
     required this.joinedAt,
     this.displayName,
     this.communityName,
+    this.email,
   });
 
   factory FamilyMember.fromJson(Map<String, dynamic> j) {
@@ -60,8 +62,19 @@ class FamilyMember {
       joinedAt: DateTime.parse(j['joined_at'] as String),
       displayName: prof?['display_name'] as String?,
       communityName: prof?['community_name'] as String?,
+      email: j['email'] as String?,
     );
   }
+
+  FamilyMember copyWith({String? email}) => FamilyMember(
+        familyId: familyId,
+        userId: userId,
+        role: role,
+        joinedAt: joinedAt,
+        displayName: displayName,
+        communityName: communityName,
+        email: email ?? this.email,
+      );
 
   bool get isOwner => role == 'owner';
 }

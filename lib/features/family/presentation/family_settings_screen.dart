@@ -333,6 +333,10 @@ class _Member extends ConsumerWidget {
                     final isMe = m.userId == currentUser;
                     final displayName =
                         m.displayName ?? m.communityName ?? 'Unbekannt';
+                    final subtitleParts = <String>[
+                      if (m.email != null && m.email!.isNotEmpty) m.email!,
+                      m.isOwner ? 'Besitzer' : 'Mitglied',
+                    ];
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
@@ -346,7 +350,16 @@ class _Member extends ConsumerWidget {
                         isMe ? '$displayName (Du)' : displayName,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      subtitle: Text(m.isOwner ? 'Besitzer' : 'Mitglied'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: subtitleParts
+                            .map((t) => Text(
+                                  t,
+                                  style: const TextStyle(fontSize: 12),
+                                ))
+                            .toList(),
+                      ),
+                      isThreeLine: subtitleParts.length > 1,
                       trailing: iAmOwner && !m.isOwner
                           ? IconButton(
                               icon: const Icon(Icons.person_remove_outlined,

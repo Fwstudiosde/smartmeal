@@ -100,9 +100,32 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
         return FamilyMember.fromJson(m);
       }).toList();
 
+      // Email fetch via SECURITY DEFINER RPC (falls back silently if missing)
+      final Map<String, String> emailsById = {};
+      try {
+        final emailsRes = await _client.rpc(
+          'get_family_member_emails',
+          params: {'fam_id': familyId},
+        );
+        if (emailsRes is List) {
+          for (final row in emailsRes) {
+            final m = Map<String, dynamic>.from(row as Map);
+            emailsById[m['user_id'] as String] = m['email'] as String? ?? '';
+          }
+        }
+      } catch (_) {
+        // RPC not deployed yet or permission denied — members without email.
+      }
+
+      final enriched = members
+          .map((m) => emailsById.containsKey(m.userId)
+              ? m.copyWith(email: emailsById[m.userId])
+              : m)
+          .toList();
+
       state = FamilyState(
         family: Household.fromJson(familyRes),
-        members: members,
+        members: enriched,
         isLoading: false,
       );
     } catch (e) {
