@@ -19,7 +19,7 @@ class RevenueCatConfig {
   // live under RevenueCat Dashboard -> Project Settings -> API keys.
   // The "test_..." key temporarily placed here is a placeholder; if it
   // fails at runtime, replace it with the real Apple App Store SDK key.
-  static const String iosApiKey = 'test_BWsScIPhhQmDuHBWfdkVgsXTFUl';
+  static const String iosApiKey = 'appl_SGYIgQmbgFYrKsGyCpaotYubMTz';
   static const String androidApiKey = 'goog_PUT_ANDROID_KEY_HERE';
 
   // Entitlement identifiers as configured in RevenueCat dashboard.
