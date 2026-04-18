@@ -5,6 +5,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:smartmeal/core/theme/app_theme.dart';
 import 'package:smartmeal/core/services/sync/connectivity_provider.dart';
 import 'package:smartmeal/core/services/sync/sync_engine.dart';
+import 'package:smartmeal/features/family/providers/family_provider.dart';
 
 class MainNavigation extends ConsumerStatefulWidget {
   final Widget child;
@@ -57,7 +58,10 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => context.go('/cart'),
+            onTap: () {
+              final hasFamily = ref.read(familyProvider).hasFamily;
+              context.go(hasFamily ? '/household/meal-plan' : '/cart');
+            },
             customBorder: const CircleBorder(),
             child: const Center(
               child: Icon(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/services/sync/sync_engine.dart';
 import '../providers/family_provider.dart';
 import '../providers/family_meal_plan_provider.dart';
+import 'plan_context_bar.dart';
 
 class FamilyMealPlanScreen extends ConsumerWidget {
   const FamilyMealPlanScreen({super.key});
@@ -86,6 +87,11 @@ class FamilyMealPlanScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          const PlanContextBar(
+            current: PlanContext.household,
+            householdRoute: '/household/meal-plan',
+            personalRoute: '/cart',
+          ),
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -9,6 +9,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../cart/providers/meal_plan_provider.dart';
 import '../../community/providers/saved_recipes_provider.dart';
 import '../../community/providers/user_profile_provider.dart';
+import '../../family/providers/family_provider.dart';
+import '../../family/providers/family_meal_plan_provider.dart';
 
 class RecipeDetailScreen extends ConsumerStatefulWidget {
   final Recipe recipe;
@@ -72,6 +74,9 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
     DateTime selectedDate = DateTime.now();
     MealType selectedMealType = MealType.lunch;
     int selectedServings = _servings;
+    final hasFamily = ref.read(familyProvider).hasFamily;
+    // Default to household if user is in a family.
+    bool targetHousehold = hasFamily;
 
     showModalBottomSheet(
       context: context,
@@ -138,6 +143,100 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
+
+                // Ziel (Haushalt / Privat) — nur wenn User in einer Familie ist
+                if (hasFamily) ...[
+                  const Text(
+                    'Hinzufügen zu',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => targetHousehold = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: targetHousehold
+                                  ? AppColors.primary
+                                  : AppColors.surface,
+                              borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(12)),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Iconsax.people,
+                                    size: 16,
+                                    color: targetHousehold
+                                        ? Colors.white
+                                        : AppColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Haushalt',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: targetHousehold
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => targetHousehold = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: !targetHousehold
+                                  ? AppColors.primary
+                                  : AppColors.surface,
+                              borderRadius: const BorderRadius.horizontal(
+                                  right: Radius.circular(12)),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Iconsax.user,
+                                    size: 16,
+                                    color: !targetHousehold
+                                        ? Colors.white
+                                        : AppColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Privat',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: !targetHousehold
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                ],
 
                 // Date Picker
                 const Text(
@@ -285,7 +384,38 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      if (targetHousehold && hasFamily) {
+                        final famMealType = FamilyMealType.values.firstWhere(
+                          (t) => t.name == selectedMealType.name,
+                          orElse: () => FamilyMealType.dinner,
+                        );
+                        await ref
+                            .read(familyMealPlanProvider.notifier)
+                            .addMeal(
+                              date: selectedDate,
+                              mealType: famMealType,
+                              name: widget.recipe.name,
+                              imageUrl: widget.recipe.imageUrl,
+                              servings: selectedServings,
+                            );
+                        if (context.mounted) Navigator.pop(context);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Zum Haushalt-Plan: ${DateFormat('EEEE').format(selectedDate)} - ${selectedMealType.label}',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: AppColors.success,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          );
+                        }
+                        return;
+                      }
                       if (widget.dealRecipe != null) {
                         ref.read(currentMealPlanProvider.notifier).addMeal(
                               dealRecipe: widget.dealRecipe!,

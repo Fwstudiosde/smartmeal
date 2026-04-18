@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/services/sync/sync_engine.dart';
 import '../providers/family_provider.dart';
 import '../providers/family_shopping_list_provider.dart';
+import 'plan_context_bar.dart';
 
 class FamilyShoppingListScreen extends ConsumerStatefulWidget {
   const FamilyShoppingListScreen({super.key});
@@ -121,6 +122,11 @@ class _FamilyShoppingListScreenState
       ),
       body: Column(
         children: [
+          const PlanContextBar(
+            current: PlanContext.household,
+            householdRoute: '/household/shopping',
+            personalRoute: '/cart',
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
