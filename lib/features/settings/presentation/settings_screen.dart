@@ -586,7 +586,11 @@ class SettingsScreen extends ConsumerWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () {
-              showPaywall(context);
+              if (isPaid) {
+                showCustomerCenter(context);
+              } else {
+                showPaywall(context);
+              }
             },
             child: Row(
               children: [

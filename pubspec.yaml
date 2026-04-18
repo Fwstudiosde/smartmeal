@@ -69,6 +69,7 @@ dependencies:
 
   # In-App Purchases via RevenueCat
   purchases_flutter: ^8.0.0
+  purchases_ui_flutter: ^8.0.0
 
   # Supabase
   supabase_flutter: ^2.5.0

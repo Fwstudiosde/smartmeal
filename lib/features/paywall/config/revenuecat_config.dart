@@ -15,8 +15,11 @@
 ///   7. Grab Public API keys from Project settings -> API keys.
 class RevenueCatConfig {
   // iOS + Android public API keys (one per platform).
-  // Replace with your real keys — leaving these blank disables the paywall.
-  static const String iosApiKey = 'appl_PUT_IOS_KEY_HERE';
+  // Real production keys start with "appl_" (iOS) or "goog_" (Android) and
+  // live under RevenueCat Dashboard -> Project Settings -> API keys.
+  // The "test_..." key temporarily placed here is a placeholder; if it
+  // fails at runtime, replace it with the real Apple App Store SDK key.
+  static const String iosApiKey = 'test_BWsScIPhhQmDuHBWfdkVgsXTFUl';
   static const String androidApiKey = 'goog_PUT_ANDROID_KEY_HERE';
 
   // Entitlement identifiers as configured in RevenueCat dashboard.
@@ -32,4 +35,7 @@ class RevenueCatConfig {
 
   static bool get isConfigured =>
       !iosApiKey.contains('PUT_') || !androidApiKey.contains('PUT_');
+
+  /// True once the real Apple App Store SDK key is installed ("appl_" prefix).
+  static bool get hasProductionIosKey => iosApiKey.startsWith('appl_');
 }
