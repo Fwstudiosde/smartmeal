@@ -67,6 +67,9 @@ dependencies:
   # Connectivity detection (offline sync)
   connectivity_plus: ^6.0.3
 
+  # In-App Purchases via RevenueCat
+  purchases_flutter: ^8.0.0
+
   # Supabase
   supabase_flutter: ^2.5.0
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/auth/providers/auth_provider.dart';
+import '../../paywall/models/subscription_tier.dart';
 import '../models/family.dart';
 
 class FamilyState {
@@ -145,16 +146,19 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
     return '${code.substring(0, 4)}-${code.substring(4)}';
   }
 
-  Future<void> createFamily(String name) async {
+  Future<void> createFamily(String name, {SubscriptionTier? tier}) async {
     final uid = _uid;
     if (uid == null) throw StateError('Not authenticated');
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final code = _generateInviteCode();
+      // Set max_members based on tier so join-by-code RPC enforces it.
+      final maxMembers = (tier ?? SubscriptionTier.free).maxHouseholdMembers;
       await _client.from('families').insert({
         'name': name.trim(),
         'owner_id': uid,
         'invite_code': code,
+        'max_members': maxMembers,
       });
       // Trigger auto-adds the owner as member. Reload.
       await load();
@@ -162,6 +166,22 @@ class FamilyNotifier extends StateNotifier<FamilyState> {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
     }
+  }
+
+  /// Owner-only: bump max_members after upgrading tier.
+  Future<void> syncMaxMembersToTier(SubscriptionTier tier) async {
+    final fam = state.family;
+    final uid = _uid;
+    if (fam == null || uid == null || fam.ownerId != uid) return;
+    final target = tier.maxHouseholdMembers;
+    if (fam.maxMembers == target) return;
+    try {
+      await _client
+          .from('families')
+          .update({'max_members': target})
+          .eq('id', fam.id);
+      await load();
+    } catch (_) {}
   }
 
   Future<void> joinByCode(String rawCode) async {

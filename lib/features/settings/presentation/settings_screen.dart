@@ -14,6 +14,9 @@ import '../../../core/services/avatar_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../features/family/providers/family_provider.dart';
 import '../../../features/fridge_scanner/providers/pantry_provider.dart';
+import '../../../features/paywall/models/subscription_tier.dart';
+import '../../../features/paywall/presentation/pro_gate.dart';
+import '../../../features/paywall/providers/subscription_provider.dart';
 import '../../../main.dart' show localeProvider;
 
 // Persistent Settings Providers backed by Hive 'settings' box
@@ -82,6 +85,8 @@ class SettingsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildProfileSection(context, ref),
+            const SizedBox(height: 24),
+            _buildProSection(context),
             const SizedBox(height: 24),
             _buildSectionTitle('Haushalt'),
             _buildHouseholdSection(context),
@@ -551,6 +556,76 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  Widget _buildProSection(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final tier = ref.watch(subscriptionProvider);
+        final isPaid = tier.isPaid;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 0),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isPaid
+                  ? [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.85)]
+                  : [Colors.amber.shade600, Colors.amber.shade800],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              showPaywall(context);
+            },
+            child: Row(
+              children: [
+                const Icon(Iconsax.crown_1, color: Colors.white, size: 28),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isPaid
+                            ? 'SparKoch ${tier.label}'
+                            : 'SparKoch Pro entdecken',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isPaid
+                            ? 'Dein Abo ist aktiv. Tippe um zu verwalten.'
+                            : 'Kühlschrank-Scanner, Deal-Alerts, 4-Wochen-Planung und mehr.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Iconsax.arrow_right_3, color: Colors.white),
+              ],
+            ),
+          ),
+        );
+      },
+    ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1, end: 0);
   }
 
   Widget _buildHouseholdSection(BuildContext context) {

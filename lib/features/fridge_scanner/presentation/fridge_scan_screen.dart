@@ -9,6 +9,8 @@ import 'package:smartmeal/core/theme/app_theme.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/core/services/ai_service.dart';
 import 'package:smartmeal/features/fridge_scanner/providers/fridge_providers.dart';
+import 'package:smartmeal/features/paywall/presentation/pro_gate.dart';
+import 'package:smartmeal/features/paywall/providers/subscription_provider.dart';
 
 class FridgeScanScreen extends ConsumerStatefulWidget {
   const FridgeScanScreen({super.key});
@@ -21,6 +23,24 @@ class _FridgeScanScreenState extends ConsumerState<FridgeScanScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isAnalyzing = false;
   File? _selectedImage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Defense in depth: even if a deep link reaches this screen, require Pro.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final isPro = ref.read(isProProvider);
+      if (!isPro && mounted) {
+        final ok = await requireProOrPaywall(
+          ref,
+          context,
+          reason:
+              'Der KI-Kühlschrank-Scanner ist exklusiv in SparKoch Pro.',
+        );
+        if (!ok && mounted) context.pop();
+      }
+    });
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {

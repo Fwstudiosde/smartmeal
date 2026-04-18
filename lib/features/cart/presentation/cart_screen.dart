@@ -7,6 +7,8 @@ import 'package:smartmeal/core/theme/app_theme.dart';
 import 'package:smartmeal/core/models/models.dart';
 import 'package:smartmeal/features/cart/providers/meal_plan_provider.dart';
 import 'package:smartmeal/features/family/presentation/plan_context_bar.dart';
+import 'package:smartmeal/features/paywall/presentation/pro_gate.dart';
+import 'package:smartmeal/features/paywall/providers/subscription_provider.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -80,7 +82,17 @@ class _CartScreenState extends ConsumerState<CartScreen> with SingleTickerProvid
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          final isPro = ref.read(isProProvider);
+                          if (!isPro) {
+                            await requireProOrPaywall(
+                              ref,
+                              context,
+                              reason:
+                                  'Wochenplanung über mehrere Wochen ist Teil von SparKoch Pro.',
+                            );
+                            return;
+                          }
                           ref.read(currentMealPlanProvider.notifier).previousWeek();
                         },
                         icon: const Icon(Iconsax.arrow_left_2, size: 20),
@@ -101,7 +113,17 @@ class _CartScreenState extends ConsumerState<CartScreen> with SingleTickerProvid
                         ),
                       ),
                       IconButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          final isPro = ref.read(isProProvider);
+                          if (!isPro) {
+                            await requireProOrPaywall(
+                              ref,
+                              context,
+                              reason:
+                                  'Wochenplanung über mehrere Wochen ist Teil von SparKoch Pro.',
+                            );
+                            return;
+                          }
                           ref.read(currentMealPlanProvider.notifier).nextWeek();
                         },
                         icon: const Icon(Iconsax.arrow_right_3, size: 20),

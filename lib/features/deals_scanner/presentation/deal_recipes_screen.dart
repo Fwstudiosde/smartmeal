@@ -13,6 +13,7 @@ import '../../fridge_scanner/providers/fridge_providers.dart';
 import '../../community/providers/user_profile_provider.dart';
 import '../../community/providers/follow_provider.dart';
 import '../../community/providers/saved_recipes_provider.dart';
+import '../../paywall/presentation/pro_gate.dart';
 
 // Selected Category Filter Provider
 final selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
@@ -54,8 +55,16 @@ class DealRecipesScreen extends ConsumerWidget {
               ),
             ),
             tooltip: 'Kühlschrank scannen',
-            onPressed: () {
-              context.push('/fridge-scan');
+            onPressed: () async {
+              final ok = await requireProOrPaywall(
+                ref,
+                context,
+                reason:
+                    'Der KI-Kühlschrank-Scanner ist exklusiv in SparKoch Pro.',
+              );
+              if (ok && context.mounted) {
+                context.push('/fridge-scan');
+              }
             },
           ),
           // Search button

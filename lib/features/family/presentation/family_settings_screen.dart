@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../paywall/models/subscription_tier.dart';
+import '../../paywall/presentation/pro_gate.dart';
+import '../../paywall/providers/subscription_provider.dart';
 import '../providers/family_provider.dart';
 
 class FamilySettingsScreen extends ConsumerWidget {
@@ -45,9 +48,27 @@ class _NoFamilyState extends ConsumerState<_NoFamily> {
   Future<void> _create() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
+
+    // Gate: creating a real (shared) household requires at least Pro.
+    final tier = ref.read(subscriptionProvider);
+    if (!tier.isPaid) {
+      final ok = await requireProOrPaywall(
+        ref,
+        context,
+        reason:
+            'Ein geteilter Haushalt ist Teil von SparKoch Pro. '
+            'Pro Familie erlaubt bis zu 6 Mitglieder.',
+        requireFamily: false,
+      );
+      if (!ok) return;
+    }
+
     setState(() => _isCreating = true);
     try {
-      await ref.read(familyProvider.notifier).createFamily(name);
+      final current = ref.read(subscriptionProvider);
+      await ref
+          .read(familyProvider.notifier)
+          .createFamily(name, tier: current);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -62,6 +83,15 @@ class _NoFamilyState extends ConsumerState<_NoFamily> {
   Future<void> _join() async {
     final code = _codeCtrl.text.trim();
     if (code.isEmpty) return;
+    final tier = ref.read(subscriptionProvider);
+    if (!tier.isPaid) {
+      final ok = await requireProOrPaywall(
+        ref,
+        context,
+        reason: 'Einem Haushalt beitreten ist Teil von SparKoch Pro.',
+      );
+      if (!ok) return;
+    }
     setState(() => _isJoining = true);
     try {
       await ref.read(familyProvider.notifier).joinByCode(code);
