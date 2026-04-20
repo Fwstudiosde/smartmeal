@@ -10,34 +10,15 @@ import 'paywall_screen.dart';
 /// Open the paywall. Returns true if the user purchased (or restored to a
 /// paid entitlement).
 ///
-/// Flow:
-///   1. If running on a supported platform + RC configured:
-///      use RevenueCatUI's native paywall (configurable via RC Dashboard,
-///      supports A/B tests, live paywall swaps without App Store review).
-///   2. Otherwise fall back to the Dart-side [PaywallScreen].
+/// Always uses the in-app [PaywallScreen] so we own the UX end-to-end
+/// (consistent German copy, App Store screenshots, graceful fallback prices
+/// in iOS Simulator). The RevenueCat native paywall can be re-enabled later
+/// by wrapping this call path once a paywall is published on the RC dashboard.
 Future<bool> showPaywall(
   BuildContext context, {
   String? reason,
   SubscriptionTier recommended = SubscriptionTier.pro,
 }) async {
-  if (!kIsWeb && RevenueCatConfig.isConfigured) {
-    try {
-      final entitlement = recommended == SubscriptionTier.proFamily
-          ? RevenueCatConfig.entitlementProFamily
-          : RevenueCatConfig.entitlementPro;
-
-      final result = await RevenueCatUI.presentPaywallIfNeeded(
-        entitlement,
-        displayCloseButton: true,
-      );
-
-      return result == PaywallResult.purchased ||
-          result == PaywallResult.restored;
-    } catch (e) {
-      debugPrint('RC Paywall error, falling back to custom: $e');
-    }
-  }
-
   final res = await Navigator.of(context, rootNavigator: true).push<bool>(
     MaterialPageRoute(
       fullscreenDialog: true,

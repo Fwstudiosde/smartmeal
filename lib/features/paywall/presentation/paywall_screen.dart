@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
+import '../config/revenuecat_config.dart';
 import '../models/subscription_tier.dart';
 import '../providers/subscription_provider.dart';
 
@@ -182,111 +183,106 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
                   const SizedBox(height: 8),
 
-                  // Plan cards
-                  offeringsAsync.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                    error: (e, _) => Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'Abos konnten nicht geladen werden: $e',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                    data: (pkgs) {
-                      return Column(
-                        children: [
-                          if (pkgs.pro != null)
-                            _PlanCard(
-                              title: 'Pro',
-                              price: pkgs.pro!.storeProduct.priceString,
-                              period: 'pro Monat',
-                              features: const [
-                                'Kühlschrank-Scanner unbegrenzt',
-                                'Alle Premium-Features',
-                                'Für dich alleine',
-                              ],
-                              selected: _selected == SubscriptionTier.pro,
-                              onTap: () => setState(
-                                  () => _selected = SubscriptionTier.pro),
-                            ),
-                          if (pkgs.family != null) ...[
-                            const SizedBox(height: 12),
-                            _PlanCard(
-                              title: 'Pro Familie',
-                              price: pkgs.family!.storeProduct.priceString,
-                              period: 'pro Monat',
-                              badge: 'Beliebt',
-                              features: const [
-                                'Alles aus Pro',
-                                'Haushalt mit bis zu 6 Personen',
-                                'Geteilter Wochenplan + Einkaufsliste',
-                              ],
-                              selected:
-                                  _selected == SubscriptionTier.proFamily,
-                              onTap: () => setState(() =>
-                                  _selected = SubscriptionTier.proFamily),
-                            ),
+                  // Plan cards — always show both with fallback pricing so
+                  // the UI is screenshot-ready even when StoreKit offerings
+                  // can't load (iOS Simulator, App Review, cold start).
+                  Builder(builder: (_) {
+                    final pkgs = offeringsAsync.asData?.value;
+                    final proPriceLabel = pkgs?.pro?.storeProduct.priceString ??
+                        RevenueCatConfig.proMonthlyFallbackPrice;
+                    final familyPriceLabel =
+                        pkgs?.family?.storeProduct.priceString ??
+                            RevenueCatConfig.proFamilyMonthlyFallbackPrice;
+
+                    return Column(
+                      children: [
+                        _PlanCard(
+                          title: 'Pro',
+                          price: proPriceLabel,
+                          period: 'pro Monat',
+                          features: const [
+                            'Kühlschrank-Scanner unbegrenzt',
+                            'Alle Premium-Features',
+                            'Für dich alleine',
                           ],
-                          if (pkgs.pro == null && pkgs.family == null)
-                            const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text(
-                                'Abos sind gerade nicht verfügbar. '
-                                'Bitte später nochmal probieren.',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
+                          selected: _selected == SubscriptionTier.pro,
+                          onTap: () => setState(
+                              () => _selected = SubscriptionTier.pro),
+                        ),
+                        const SizedBox(height: 12),
+                        _PlanCard(
+                          title: 'Pro Familie',
+                          price: familyPriceLabel,
+                          period: 'pro Monat',
+                          badge: 'Beliebt',
+                          features: const [
+                            'Alles aus Pro',
+                            'Haushalt mit bis zu 6 Personen',
+                            'Geteilter Wochenplan + Einkaufsliste',
+                          ],
+                          selected:
+                              _selected == SubscriptionTier.proFamily,
+                          onTap: () => setState(() =>
+                              _selected = SubscriptionTier.proFamily),
+                        ),
+                      ],
+                    );
+                  }),
 
                   const SizedBox(height: 24),
 
-                  // Purchase button
-                  offeringsAsync.maybeWhen(
-                    data: (pkgs) => SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isBuying
-                            ? null
-                            : () {
-                                final pkg = _selected ==
-                                        SubscriptionTier.proFamily
-                                    ? pkgs.family
-                                    : pkgs.pro;
-                                if (pkg != null) _purchase(pkg);
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                  // Purchase button — always visible. Attempts purchase if
+                  // a real StoreKit package is loaded; otherwise surfaces
+                  // a friendly message (covers Simulator / unconfigured RC).
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isBuying
+                          ? null
+                          : () {
+                              final pkgs = offeringsAsync.asData?.value;
+                              final pkg = _selected ==
+                                      SubscriptionTier.proFamily
+                                  ? pkgs?.family
+                                  : pkgs?.pro;
+                              if (pkg != null) {
+                                _purchase(pkg);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Abos werden geladen – auf einem echten '
+                                      'Gerät kannst du jetzt kaufen.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: _isBuying
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Jetzt starten',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
+                      child: _isBuying
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Jetzt starten',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
-                    orElse: () => const SizedBox.shrink(),
                   ),
 
                   const SizedBox(height: 12),

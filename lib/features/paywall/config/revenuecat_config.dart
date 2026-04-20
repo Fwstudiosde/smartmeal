@@ -33,6 +33,13 @@ class RevenueCatConfig {
   // Offering id in RevenueCat (default if you named it "default").
   static const String defaultOffering = 'default';
 
+  // Display-only fallback prices, used when StoreKit prices are not
+  // available (iOS Simulator, offerings not yet loaded, App Review
+  // screenshots). Must match the prices configured in App Store Connect
+  // for the matching products so screenshots don't misrepresent pricing.
+  static const String proMonthlyFallbackPrice = '4,99 €';
+  static const String proFamilyMonthlyFallbackPrice = '7,99 €';
+
   static bool get isConfigured =>
       !iosApiKey.contains('PUT_') || !androidApiKey.contains('PUT_');
 
