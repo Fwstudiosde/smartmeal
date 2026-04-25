@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../features/paywall/services/subscription_service.dart';
 import '../models/user_model.dart' show UserModel;
 import '../models/user_model.dart' as models;
 
@@ -153,6 +154,7 @@ class AuthNotifier extends StateNotifier<models.AuthState> {
   /// Logout
   Future<void> logout() async {
     try {
+      await SubscriptionService.instance.logout();
       await supabase.auth.signOut();
       state = state.unauthenticated();
     } catch (e) {

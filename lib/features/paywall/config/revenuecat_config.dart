@@ -37,8 +37,8 @@ class RevenueCatConfig {
   // available (iOS Simulator, offerings not yet loaded, App Review
   // screenshots). Must match the prices configured in App Store Connect
   // for the matching products so screenshots don't misrepresent pricing.
-  static const String proMonthlyFallbackPrice = '4,99 €';
-  static const String proFamilyMonthlyFallbackPrice = '7,99 €';
+  static const String proMonthlyFallbackPrice = '1,99 €';
+  static const String proFamilyMonthlyFallbackPrice = '3,99 €';
 
   static bool get isConfigured =>
       !iosApiKey.contains('PUT_') || !androidApiKey.contains('PUT_');

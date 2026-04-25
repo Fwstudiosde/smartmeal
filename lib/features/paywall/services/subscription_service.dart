@@ -17,9 +17,14 @@ class SubscriptionService {
       !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 
   Future<void> initialize({required String appUserId}) async {
-    if (_initialized) return;
     if (!isAvailable) return;
     if (!RevenueCatConfig.isConfigured) return;
+
+    if (_initialized) {
+      // Already configured for a previous user — just rebind to the new uid.
+      await identify(appUserId);
+      return;
+    }
 
     final key = Platform.isIOS
         ? RevenueCatConfig.iosApiKey
