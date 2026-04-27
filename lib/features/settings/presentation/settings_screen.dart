@@ -7,6 +7,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/providers/auth_provider.dart';
 import '../../../core/auth/providers/community_profile_provider.dart';
@@ -1019,36 +1020,122 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.logout,
+                color: Colors.red,
+              ),
+            ),
+            title: const Text(
+              'Abmelden',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.red,
+              ),
+            ),
+            subtitle: const Text(
+              'Von diesem Gerät abmelden',
+              style: TextStyle(fontSize: 12),
+            ),
+            trailing: const Icon(Iconsax.arrow_right_3, size: 20, color: Colors.red),
+            onTap: () async {
+              await ref.read(authProvider.notifier).logout();
+            },
           ),
-          child: const Icon(
-            Icons.logout,
-            color: Colors.red,
+          const Divider(height: 1),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Iconsax.trash,
+                color: Colors.red,
+              ),
+            ),
+            title: const Text(
+              'Konto löschen',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.red,
+              ),
+            ),
+            subtitle: const Text(
+              'Konto und alle Daten unwiderruflich löschen',
+              style: TextStyle(fontSize: 12),
+            ),
+            trailing: const Icon(Iconsax.arrow_right_3, size: 20, color: Colors.red),
+            onTap: () => _confirmAndDeleteAccount(context, ref),
           ),
-        ),
-        title: const Text(
-          'Abmelden',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            color: Colors.red,
-          ),
-        ),
-        subtitle: const Text(
-          'Von diesem Gerät abmelden',
-          style: TextStyle(fontSize: 12),
-        ),
-        trailing: const Icon(Iconsax.arrow_right_3, size: 20, color: Colors.red),
-        onTap: () async {
-          await ref.read(authProvider.notifier).logout();
-        },
+        ],
       ),
     ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.1, end: 0);
+  }
+
+  Future<void> _confirmAndDeleteAccount(
+      BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Konto wirklich löschen?'),
+        content: const Text(
+          'Dein Konto und alle zugehörigen Daten (Pantry, Meal Plans, '
+          'Einkaufslisten, Familie, Bookmarks) werden unwiderruflich '
+          'gelöscht.\n\n'
+          'Bestehende Apple-Abos kündigst du separat über Einstellungen → '
+          'Apple-ID → Abonnements.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Endgültig löschen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await Supabase.instance.client.rpc('delete_my_account');
+      await ref.read(authProvider.notifier).logout();
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // dismiss spinner
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // dismiss spinner
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Löschen fehlgeschlagen: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
